@@ -1,5 +1,11 @@
 certifi==2026.6.17
 charset-normalizer==3.4.9
 idna==3.18
+numpy==2.5.1
+pandas==3.0.3
+python-dateutil==2.9.0.post0
 requests==2.34.2
+six==1.17.0
+tzdata==2026.3
 urllib3==2.7.0
+hopsworks
