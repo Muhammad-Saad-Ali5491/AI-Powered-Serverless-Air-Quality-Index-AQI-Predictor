@@ -11,9 +11,13 @@ def fetch_raw():
     pollution = requests.get(
         f"http://api.openweathermap.org/data/2.5/air_pollution?lat={LAT}&lon={LON}&appid={API_KEY}"
     ).json()
+    print("POLLUTION RESPONSE:", pollution)  # temporary debug line
+
     weather = requests.get(
         f"http://api.openweathermap.org/data/2.5/weather?lat={LAT}&lon={LON}&appid={API_KEY}&units=metric"
     ).json()
+    print("WEATHER RESPONSE:", weather)  # temporary debug line
+
     return pollution, weather
 
 def build_features(pollution, weather):
