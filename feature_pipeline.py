@@ -2,8 +2,8 @@ import requests, os, json
 from datetime import datetime, timezone
 
 API_KEY = os.environ["OPENWEATHER_API_KEY"]
-LAT = os.environ.get("LATITUDE", "31.5497")
-LON = os.environ.get("LONGITUDE", "74.3436")
+LAT = os.environ.get("LATITUDE", "31.5497").strip()
+LON = os.environ.get("LONGITUDE", "74.3436").strip()
 
 def fetch():
     pollution = requests.get(
