@@ -16,5 +16,5 @@ jobs:
       - run: python feature_pipeline.py
         env:
           OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
-          LATITUDE: ${{ variables.LATITUDE }}
-          LONGITUDE: ${{ variables.LONGITUDE }}
+          LATITUDE: ${{ vars.LATITUDE }}
+          LONGITUDE: ${{ vars.LONGITUDE }}
