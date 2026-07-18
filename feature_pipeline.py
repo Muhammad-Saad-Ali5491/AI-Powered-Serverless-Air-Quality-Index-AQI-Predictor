@@ -9,11 +9,17 @@ def fetch():
     pollution = requests.get(
         f"http://api.openweathermap.org/data/2.5/air_pollution?lat={LAT}&lon={LON}&appid={API_KEY}"
     ).json()
-    print("POLLUTION RESPONSE:", pollution)  # ADD THIS LINE TEMPORARILY
+    
+    if "list" not in pollution:
+        raise RuntimeError(f"Pollution API error: {pollution}")
+    
 
     weather = requests.get(
         f"http://api.openweathermap.org/data/2.5/weather?lat={LAT}&lon={LON}&appid={API_KEY}&units=metric"
     ).json()
+    
+    if "main" not in weather:
+        raise RuntimeError(f"Weather API error: {weather}")
 
     row = {
         "timestamp": datetime.now(timezone.utc).isoformat(),   # <- confirm this line exists
