@@ -8,4 +8,4 @@ requests==2.34.2
 six==1.17.0
 tzdata==2026.3
 urllib3==2.7.0
-hopsworks
+hopsworks[python]
