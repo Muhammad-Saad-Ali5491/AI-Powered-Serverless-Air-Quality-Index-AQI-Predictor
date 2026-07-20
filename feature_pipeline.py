@@ -4,8 +4,8 @@ from datetime import datetime
 import hopsworks
 
 API_KEY = os.environ["OPENWEATHER_API_KEY"]
-LAT = os.environ.get("LATITUDE").strip()
-LON = os.environ.get("LONGITUDE").strip()
+LAT = os.environ.get("LATITUDE") .strip()
+LON = os.environ.get("LONGITUDE") .strip()
 
 
 def fetch_raw():
@@ -38,8 +38,12 @@ def build_features(pollution, weather):
         "o3": float(pollution["list"][0]["components"]["o3"]),
         "co": float(pollution["list"][0]["components"]["co"]),
         "temp": float(weather["main"]["temp"]),
-        "humidity": float(weather["main"]["humidity"]),
-        "pressure": float(weather["main"]["pressure"]),
+        # humidity and pressure are always whole numbers in OpenWeather's API
+        # (integer % and integer hPa) - the feature group schema was already
+        # locked to bigint for these based on the first successful insert,
+        # so keep them as int here to match, not float.
+        "humidity": int(weather["main"]["humidity"]),
+        "pressure": int(weather["main"]["pressure"]),
         "wind_speed": float(weather["wind"]["speed"]),
     }
 
@@ -60,11 +64,11 @@ def push_to_feature_store(row: dict, max_retries: int = 3):
 
     # Belt-and-braces: force the dtypes explicitly too, in case pandas
     # still infers something unexpected from a single-row dataframe.
-    float_cols = ["pm2_5", "pm10", "no2", "o3", "co", "temp", "humidity", "pressure", "wind_speed"]
+    float_cols = ["pm2_5", "pm10", "no2", "o3", "co", "temp", "wind_speed"]
     for col in float_cols:
         df[col] = df[col].astype("float64")
 
-    int_cols = ["aqi", "hour", "day", "month", "day_of_week"]
+    int_cols = ["aqi", "hour", "day", "month", "day_of_week", "humidity", "pressure"]
     for col in int_cols:
         df[col] = df[col].astype("int64")
 
