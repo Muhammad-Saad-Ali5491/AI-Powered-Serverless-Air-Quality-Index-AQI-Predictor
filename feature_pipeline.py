@@ -4,8 +4,8 @@ from datetime import datetime
 import hopsworks
 
 API_KEY = os.environ["OPENWEATHER_API_KEY"]
-LAT = os.environ.get("LATITUDE") or "31.5497"
-LON = os.environ.get("LONGITUDE") or "74.3436"
+LAT = os.environ.get("LATITUDE").strip()
+LON = os.environ.get("LONGITUDE").strip()
 
 
 def fetch_raw():
