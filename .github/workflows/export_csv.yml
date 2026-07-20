@@ -1,0 +1,33 @@
+name: Export Hopsworks data to CSV
+
+on:
+  workflow_dispatch:        # lets you trigger this manually anytime from the Actions tab
+  schedule:
+    - cron: '0 0 * * *'     # also runs automatically once a day at midnight UTC
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # needed so this job can commit the updated CSV back to the repo
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - run: pip install "hopsworks[python]" pandas
+
+      - run: python export_to_csv.py
+        env:
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+
+      - name: Commit updated CSV back to repo
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add aqi_data_export.csv
+          git diff --staged --quiet || git commit -m "Update AQI data export ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+          git push
