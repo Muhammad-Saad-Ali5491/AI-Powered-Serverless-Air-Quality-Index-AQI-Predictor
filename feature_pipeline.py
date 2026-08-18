@@ -1,36 +1,57 @@
-import requests, os, time
+"""
+Live feature pipeline - multi-city version.
+
+Runs hourly (via GitHub Actions). For every city in config.CITIES:
+  1. Fetches current pollution + weather from OpenWeather
+  2. Builds a feature row (with explicit, schema-matching dtypes)
+  3. Inserts it into the shared Hopsworks feature group, tagged by city
+
+Schema note: 'city' is part of the primary key alongside 'timestamp', so
+the same feature group holds all cities' data, distinguished by that column.
+Numeric dtypes are forced explicitly because OpenWeather sometimes returns
+whole numbers as JSON ints (e.g. temp: 25 instead of 25.4), which otherwise
+causes intermittent Hopsworks schema-mismatch errors.
+"""
+
+import os
+import time
+from datetime import datetime, timezone
+
 import pandas as pd
-from datetime import datetime
+import requests
 import hopsworks
 
+from config import CITIES, FEATURE_GROUP_NAME, FEATURE_GROUP_VERSION
+
 API_KEY = os.environ["OPENWEATHER_API_KEY"]
-LAT = os.environ.get("LATITUDE") .strip()
-LON = os.environ.get("LONGITUDE") .strip()
+
+# Columns that are genuinely continuous -> always cast to float64
+FLOAT_COLS = ["pm2_5", "pm10", "no2", "o3", "co", "temp", "wind_speed"]
+# Columns that OpenWeather always returns as whole numbers -> always cast to int64
+INT_COLS = ["aqi", "hour", "day", "month", "day_of_week", "humidity", "pressure"]
 
 
-def fetch_raw():
+def fetch_raw(lat, lon):
     pollution = requests.get(
-        f"http://api.openweathermap.org/data/2.5/air_pollution?lat={LAT}&lon={LON}&appid={API_KEY}"
+        f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={API_KEY}",
+        timeout=15,
     ).json()
     weather = requests.get(
-        f"http://api.openweathermap.org/data/2.5/weather?lat={LAT}&lon={LON}&appid={API_KEY}&units=metric"
+        f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric",
+        timeout=15,
     ).json()
     return pollution, weather
 
 
-def build_features(pollution, weather):
-    now = datetime.utcnow()
+def build_features(city, pollution, weather):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     return {
+        "city": city,
         "timestamp": now,
         "hour": int(now.hour),
         "day": int(now.day),
         "month": int(now.month),
         "day_of_week": int(now.weekday()),
-        # Explicit float() casts below - OpenWeather sometimes returns whole
-        # numbers as JSON ints (e.g. temp: 25 instead of 25.4), which pandas
-        # then infers as int64 instead of float64, breaking Hopsworks' fixed
-        # 'double' schema on those rows. Forcing float() makes every row
-        # consistent regardless of what the API happened to return.
         "aqi": int(pollution["list"][0]["main"]["aqi"]),
         "pm2_5": float(pollution["list"][0]["components"]["pm2_5"]),
         "pm10": float(pollution["list"][0]["components"]["pm10"]),
@@ -38,61 +59,77 @@ def build_features(pollution, weather):
         "o3": float(pollution["list"][0]["components"]["o3"]),
         "co": float(pollution["list"][0]["components"]["co"]),
         "temp": float(weather["main"]["temp"]),
-        # humidity and pressure are always whole numbers in OpenWeather's API
-        # (integer % and integer hPa) - the feature group schema was already
-        # locked to bigint for these based on the first successful insert,
-        # so keep them as int here to match, not float.
         "humidity": int(weather["main"]["humidity"]),
         "pressure": int(weather["main"]["pressure"]),
         "wind_speed": float(weather["wind"]["speed"]),
     }
 
 
-def push_to_feature_store(row: dict, max_retries: int = 3):
+def get_feature_group():
     project = hopsworks.login(api_key_value=os.environ["HOPSWORKS_API_KEY"])
     fs = project.get_feature_store()
-
     fg = fs.get_or_create_feature_group(
-        name="aqi_features",
-        version=1,
-        primary_key=["timestamp"],
+        name=FEATURE_GROUP_NAME,
+        version=FEATURE_GROUP_VERSION,
+        primary_key=["city", "timestamp"],
         event_time="timestamp",
-        description="Hourly AQI features"
+        description="Hourly AQI + weather features for major Pakistani cities",
     )
+    return fg
 
-    df = pd.DataFrame([row])
 
-    # Belt-and-braces: force the dtypes explicitly too, in case pandas
-    # still infers something unexpected from a single-row dataframe.
-    float_cols = ["pm2_5", "pm10", "no2", "o3", "co", "temp", "wind_speed"]
-    for col in float_cols:
+def enforce_dtypes(df):
+    for col in FLOAT_COLS:
         df[col] = df[col].astype("float64")
-
-    int_cols = ["aqi", "hour", "day", "month", "day_of_week", "humidity", "pressure"]
-    for col in int_cols:
+    for col in INT_COLS:
         df[col] = df[col].astype("int64")
+    df["city"] = df["city"].astype("str")
+    return df
 
-    # Retry logic for transient connection drops (RemoteDisconnected, etc.)
+
+def insert_with_retry(fg, df, max_retries=3):
     last_error = None
     for attempt in range(1, max_retries + 1):
         try:
             fg.insert(df)
-            print(f"Inserted row for {row['timestamp']} (attempt {attempt})")
-            return
+            return True
         except Exception as e:
             last_error = e
-            print(f"Insert attempt {attempt} failed: {e}")
+            print(f"  insert attempt {attempt} failed: {e}")
             if attempt < max_retries:
-                wait = 5 * attempt  # simple backoff: 5s, 10s, 15s...
-                print(f"Retrying in {wait}s...")
+                wait = 5 * attempt
+                print(f"  retrying in {wait}s...")
                 time.sleep(wait)
+    print(f"  giving up after {max_retries} attempts: {last_error}")
+    return False
 
-    # If we exhausted all retries, raise the last error so the Action
-    # still shows as failed (better than silently losing an hour of data)
-    raise last_error
+
+def main():
+    fg = get_feature_group()
+
+    rows = []
+    for city, coords in CITIES.items():
+        try:
+            pollution, weather = fetch_raw(coords["lat"], coords["lon"])
+            row = build_features(city, pollution, weather)
+            rows.append(row)
+            print(f"Fetched {city}: AQI={row['aqi']} PM2.5={row['pm2_5']}")
+        except Exception as e:
+            # One city's API hiccup shouldn't take down the other 6
+            print(f"Failed to fetch {city}: {e}")
+
+    if not rows:
+        raise RuntimeError("No cities were successfully fetched this run - aborting insert.")
+
+    df = pd.DataFrame(rows)
+    df = enforce_dtypes(df)
+
+    success = insert_with_retry(fg, df)
+    if not success:
+        raise RuntimeError("Failed to insert batch into Hopsworks after retries.")
+
+    print(f"Inserted {len(df)} rows ({len(rows)} cities) for {df['timestamp'].iloc[0]}")
 
 
 if __name__ == "__main__":
-    pollution, weather = fetch_raw()
-    row = build_features(pollution, weather)
-    push_to_feature_store(row)
+    main()

@@ -1,0 +1,29 @@
+name: Train AQI models
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # once daily, 2 AM UTC
+  workflow_dispatch:
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python training_pipeline.py
+        env:
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+
+      - name: Commit updated metrics log
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/metrics_log.csv
+          git diff --staged --quiet || git commit -m "Update training metrics ($(date -u +'%Y-%m-%d'))"
+          git push
