@@ -1,0 +1,92 @@
+name: One-Time Bootstrap (Backfill + Initial Training)
+
+# Run this ONCE from the GitHub Actions tab (Run workflow button) to
+# populate the feature store with historical data and train the first
+# model — no local machine required. After this completes successfully,
+# feature_pipeline.yml (hourly) and training_pipeline.yml (daily) keep
+# everything up to date automatically.
+
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "Years of OpenAQ history to backfill"
+        required: false
+        default: "4"
+        type: string
+      cities:
+        description: "Space-separated city names to backfill (blank = all 8 Pakistani cities)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-pipeline
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350   # OpenAQ backfill across 8 cities x 4 years can take a while
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run historical backfill (OpenAQ, up to 4 years)
+        env:
+          OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+          USE_HOPSWORKS: ${{ vars.USE_HOPSWORKS || 'true' }}
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT_NAME: ${{ vars.HOPSWORKS_PROJECT_NAME }}
+          HOPSWORKS_HOST: ${{ vars.HOPSWORKS_HOST }}
+        run: |
+          python -m src.data.backfill_historical --years "${{ inputs.years }}" ${{ inputs.cities != '' && format('--cities {0}', inputs.cities) || '' }}
+
+      - name: Fetch one live OpenWeather snapshot (adds current weather features)
+        env:
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          USE_HOPSWORKS: ${{ vars.USE_HOPSWORKS || 'true' }}
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT_NAME: ${{ vars.HOPSWORKS_PROJECT_NAME }}
+          HOPSWORKS_HOST: ${{ vars.HOPSWORKS_HOST }}
+        run: python scripts/run_feature_pipeline.py
+        continue-on-error: true   # don't fail the whole bootstrap if OpenWeather has a transient issue
+
+      - name: Train the first model
+        env:
+          USE_HOPSWORKS: ${{ vars.USE_HOPSWORKS || 'true' }}
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT_NAME: ${{ vars.HOPSWORKS_PROJECT_NAME }}
+          HOPSWORKS_HOST: ${{ vars.HOPSWORKS_HOST }}
+        run: python scripts/run_training_pipeline.py
+
+      - name: Commit feature store + trained model back to the repo
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/features/ models/ 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "chore: bootstrap backfill + initial model training [skip ci]"
+          git push
+
+      - name: Summary
+        run: |
+          echo "### Bootstrap complete ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Historical data backfilled from OpenAQ" >> "$GITHUB_STEP_SUMMARY"
+          echo "- First model trained and committed to \`models/\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- The hourly feature pipeline and daily training pipeline will now keep everything current automatically." >> "$GITHUB_STEP_SUMMARY"
+          echo "- If you have a Streamlit Cloud app connected to this repo, it will auto-redeploy with the new data." >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,49 @@
+# Environment / secrets
+.env
+*.env
+google-credentials.json
+service-account*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+logs/
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Large / generated data & models are versioned deliberately by the
+# feature + training GitHub Actions workflows, so they are NOT ignored:
+# data/features/*.parquet
+# models/*.joblib
+# models/*.keras
+# models/registry.json
+#
+# Raw scratch data and local demo artifacts ARE ignored:
+data/raw/*.csv
+data/processed/*
+!data/processed/.gitkeep

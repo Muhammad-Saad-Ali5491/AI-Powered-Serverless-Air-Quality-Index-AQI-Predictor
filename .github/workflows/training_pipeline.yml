@@ -1,0 +1,65 @@
+name: Daily Model Training Pipeline
+
+on:
+  schedule:
+    # Runs once a day at 02:00 UTC (after several hourly feature runs have accumulated)
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "src/training/**"
+      - "src/features/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: training-pipeline
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run daily training pipeline
+        env:
+          USE_HOPSWORKS: ${{ vars.USE_HOPSWORKS || 'true' }}
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          HOPSWORKS_PROJECT_NAME: ${{ vars.HOPSWORKS_PROJECT_NAME }}
+          HOPSWORKS_HOST: ${{ vars.HOPSWORKS_HOST }}
+        run: python scripts/run_training_pipeline.py
+
+      - name: Upload model artifacts (workflow run backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-models-${{ github.run_id }}
+          path: |
+            models/*.joblib
+            models/*.keras
+            models/registry.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Commit updated model registry + artifacts
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "github-actions[bot]"
+          git add models/ 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "chore: daily model training update [skip ci]"
+          git push
