@@ -14,7 +14,7 @@ __pycache__/
 .ruff_cache/
 build/
 dist/
-Api.txt
+APi.txt
 # Virtual environments
 venv/
 .venv/
