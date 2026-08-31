@@ -1,31 +1,17 @@
-pandas  # pinned <2.2.0 for Hopsworks compatibility (see note below)
-numpy
-requests
-python-dotenv
-scikit-learn
-tensorflow
-protobuf # pinned: must satisfy both TensorFlow 2.16 (<5.0) and
-                  # Hopsworks (>=4.25.4,<5.0). Mismatched protobuf versions
-                  # can crash the interpreter on import — keep this pin.
-joblib
-pyarrow
-shap
-streamlit
-flask
-flask-cors
-plotly
-matplotlib
-pydantic
-pytest
-pytest-mock
-tqdm
-PyYAML
-
-# Hopsworks Feature Store client (default feature store backend for this
-# project — see src/features/feature_store.py). The [python] extra pulls in
-# the offline "python engine" (fastavro, confluent-kafka) needed to read/
-# write feature groups without Spark.
-#
-# NOTE: hopsworks pins pandas<2.2.0, which is why pandas is pinned to 2.1.4
-# above instead of a newer release — this is intentional, not an oversight.
-hopsworks[python]
+pandas>=2.1.4,<2.2.0
+numpy>=1.26.0,<2.0.0
+requests>=2.32.0
+python-dotenv>=1.0.0
+scikit-learn>=1.5.0
+joblib>=1.4.0
+pyarrow>=15.0.0
+streamlit>=1.37.0
+plotly>=5.20.0
+matplotlib>=3.8.0
+shap>=0.45.0
+python-dotenv>=1.0.0
+flask>=3.0.0
+flask-cors>=4.0.0
+pydantic>=2.7.0
+tqdm>=4.66.0
+PyYAML>=6.0.0
