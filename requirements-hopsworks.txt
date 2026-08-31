@@ -24,4 +24,4 @@
 # pandas version in practice. If you hit a runtime pandas-version error
 # from hsfs specifically, pin pandas==2.1.4 in this file's environment too.
 
-hopsworks==4.1.5
+hopsworks
