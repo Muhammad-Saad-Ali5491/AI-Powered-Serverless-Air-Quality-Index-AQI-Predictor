@@ -64,3 +64,32 @@ def test_convert_units_gas_converted():
 def test_compute_aqi_extreme_value_caps_at_500():
     aqi = compute_aqi({"pm25": 900.0})
     assert aqi == 500
+
+
+def test_compute_aqi_handles_pandas_na_without_crashing():
+    """
+    Regression test for a real production crash: when a pollutant column
+    is entirely missing (e.g. a station only has a pm25 sensor, so no10/
+    no2/so2/co/o3 are absent), the backfill pipeline used to fill those
+    columns with pandas' pd.NA sentinel. Passing pd.NA through a numeric
+    comparison (`if concentration < 0`) raises
+    "TypeError: boolean value of NA is ambiguous" instead of behaving like
+    a normal missing value. compute_aqi must treat pd.NA exactly like None.
+    """
+    import pandas as pd
+
+    # Should not raise, and should compute AQI from the one real value.
+    aqi = compute_aqi({"pm25": 20.0, "pm10": pd.NA, "no2": pd.NA, "so2": pd.NA, "co": pd.NA, "o3": pd.NA})
+    assert aqi is not None
+    assert 51 <= aqi <= 100
+
+    # All-NA input should return None, not raise.
+    assert compute_aqi({"pm25": pd.NA, "pm10": pd.NA}) is None
+
+
+def test_sub_index_handles_pandas_na_directly():
+    import pandas as pd
+    from src.utils.aqi_calc import _sub_index
+
+    assert _sub_index("pm25", pd.NA) is None
+    assert _sub_index("no2", pd.NA) is None

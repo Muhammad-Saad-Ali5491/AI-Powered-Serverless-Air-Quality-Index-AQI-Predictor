@@ -48,13 +48,19 @@ def reshape_openaq_rows(rows: list[dict]) -> pd.DataFrame:
 
     for pollutant in config.POLLUTANTS:
         if pollutant not in pivot.columns:
-            pivot[pollutant] = pd.NA
+            # Use a real float NaN, not pandas' pd.NA sentinel: pd.NA is an
+            # object-dtype value that raises "boolean value of NA is
+            # ambiguous" the moment downstream code does a numeric
+            # comparison on it (e.g. aqi_calc's `if concentration < 0`).
+            # float("nan") behaves correctly with math.isnan() and normal
+            # numeric comparisons everywhere else in the pipeline.
+            pivot[pollutant] = float("nan")
 
     # backfill has no weather data from OpenAQ; fill neutral placeholders,
     # the hourly live pipeline will supply real weather going forward.
     for col in config.WEATHER_FEATURES:
         if col not in pivot.columns:
-            pivot[col] = pd.NA
+            pivot[col] = float("nan")
 
     return pivot
 

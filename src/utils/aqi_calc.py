@@ -14,6 +14,8 @@ from __future__ import annotations
 import math
 from typing import Optional
 
+import pandas as pd
+
 # Each tuple: (C_low, C_high, I_low, I_high)
 _PM25_BREAKPOINTS = [
     (0.0, 12.0, 0, 50),
@@ -102,7 +104,15 @@ def _truncate(value: float, decimals: int) -> float:
 
 
 def _sub_index(pollutant: str, concentration: Optional[float]) -> Optional[float]:
-    if concentration is None or (isinstance(concentration, float) and math.isnan(concentration)):
+    # pd.isna() safely handles every "missing" sentinel we might encounter
+    # here — None, float('nan'), numpy.nan, and pandas' own pd.NA/pd.NaT —
+    # without raising. A plain `concentration != concentration` or
+    # `math.isnan()` check is NOT enough: pd.NA in a numeric comparison
+    # (e.g. `pd.NA < 0`) returns pd.NA itself, and evaluating that in a
+    # boolean context (`if pd.NA:`) raises
+    # "TypeError: boolean value of NA is ambiguous" rather than behaving
+    # like a normal falsy/missing value.
+    if pd.isna(concentration):
         return None
     if concentration < 0:
         return None
