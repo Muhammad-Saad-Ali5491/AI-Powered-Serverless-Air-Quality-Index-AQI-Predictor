@@ -53,13 +53,13 @@ class City:
 
 CITIES = [
     City("Lahore", lat=31.5497, lon=74.3436),
-    City("Karachi", lat=24.8607, lon=67.0011),
-    City("Islamabad", lat=33.6844, lon=73.0479),
-    City("Rawalpindi", lat=33.5651, lon=73.0169),
-    City("Faisalabad", lat=31.4504, lon=73.1350),
-    City("Multan", lat=30.1575, lon=71.5249),
-    City("Peshawar", lat=34.0151, lon=71.5249),
-    City("Quetta", lat=30.1798, lon=66.9750),
+    City("Karachi", lat=24.8608, lon=67.0104),
+    City("Islamabad", lat=33.7215, lon=73.0433),
+    City("Rawalpindi", lat=33.5973, lon=73.0479),
+    City("Faisalabad", lat=31.4167, lon=73.0911),
+    City("Multan", lat=30.1978, lon=71.4697),
+    City("Peshawar", lat=34.0151, lon=71.5675),
+    City("Quetta", lat=30.1841, lon=67.0014),
 ]
 
 CITY_NAMES = [c.name for c in CITIES]
