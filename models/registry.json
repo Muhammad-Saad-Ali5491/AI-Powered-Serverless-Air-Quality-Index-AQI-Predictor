@@ -1,0 +1,138 @@
+{
+  "runs": [
+    {
+      "run_id": "ridge_20260831T205216Z",
+      "timestamp": "20260831T205216Z",
+      "model_type": "ridge",
+      "artifact": "ridge_20260831T205216Z.joblib",
+      "feature_columns": [
+        "hour",
+        "day",
+        "month",
+        "day_of_week",
+        "is_weekend",
+        "day_of_year",
+        "temp",
+        "humidity",
+        "pressure",
+        "wind_speed",
+        "wind_deg",
+        "clouds",
+        "pm25",
+        "pm10",
+        "no2",
+        "so2",
+        "co",
+        "o3",
+        "aqi_lag_1h",
+        "aqi_lag_24h",
+        "aqi_lag_72h",
+        "aqi_rolling_mean_24h",
+        "aqi_rolling_std_24h",
+        "aqi_change_rate_1h",
+        "aqi_change_rate_24h"
+      ],
+      "horizons_hours": [
+        24,
+        48,
+        72
+      ],
+      "metrics": {
+        "ridge": {
+          "overall": {
+            "rmse": 41.18639146636688,
+            "mae": 31.28394281565352,
+            "r2": 0.4959489351107833
+          },
+          "per_horizon": {
+            "24h": {
+              "rmse": 37.44470754881378,
+              "mae": 27.86422805845196,
+              "r2": 0.5830721400933279
+            },
+            "48h": {
+              "rmse": 41.822394181807745,
+              "mae": 32.070131329135386,
+              "r2": 0.48032314882452665
+            },
+            "72h": {
+              "rmse": 44.01974270197132,
+              "mae": 33.91746905937322,
+              "r2": 0.4245573659505195
+            }
+          }
+        }
+      },
+      "n_train_rows": 66104,
+      "n_test_rows": 16527,
+      "python_platform": "Linux-6.12.8+-x86_64-with-glibc2.39"
+    }
+  ],
+  "champion": {
+    "run_id": "ridge_20260831T205216Z",
+    "timestamp": "20260831T205216Z",
+    "model_type": "ridge",
+    "artifact": "ridge_20260831T205216Z.joblib",
+    "feature_columns": [
+      "hour",
+      "day",
+      "month",
+      "day_of_week",
+      "is_weekend",
+      "day_of_year",
+      "temp",
+      "humidity",
+      "pressure",
+      "wind_speed",
+      "wind_deg",
+      "clouds",
+      "pm25",
+      "pm10",
+      "no2",
+      "so2",
+      "co",
+      "o3",
+      "aqi_lag_1h",
+      "aqi_lag_24h",
+      "aqi_lag_72h",
+      "aqi_rolling_mean_24h",
+      "aqi_rolling_std_24h",
+      "aqi_change_rate_1h",
+      "aqi_change_rate_24h"
+    ],
+    "horizons_hours": [
+      24,
+      48,
+      72
+    ],
+    "metrics": {
+      "ridge": {
+        "overall": {
+          "rmse": 41.18639146636688,
+          "mae": 31.28394281565352,
+          "r2": 0.4959489351107833
+        },
+        "per_horizon": {
+          "24h": {
+            "rmse": 37.44470754881378,
+            "mae": 27.86422805845196,
+            "r2": 0.5830721400933279
+          },
+          "48h": {
+            "rmse": 41.822394181807745,
+            "mae": 32.070131329135386,
+            "r2": 0.48032314882452665
+          },
+          "72h": {
+            "rmse": 44.01974270197132,
+            "mae": 33.91746905937322,
+            "r2": 0.4245573659505195
+          }
+        }
+      }
+    },
+    "n_train_rows": 66104,
+    "n_test_rows": 16527,
+    "python_platform": "Linux-6.12.8+-x86_64-with-glibc2.39"
+  }
+}

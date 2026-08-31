@@ -2,8 +2,10 @@
 Central configuration for the Pearls AQI Predictor.
 
 Loads secrets from environment variables (populated locally via a .env
-file, and in CI via GitHub Actions "secrets"). Nothing sensitive is
-hard-coded here.
+file, and in CI via GitHub Actions "secrets"). Also supports Streamlit
+Community Cloud secrets (st.secrets) when running under Streamlit.
+
+Nothing sensitive is hard-coded here.
 """
 import os
 from dataclasses import dataclass
@@ -11,11 +13,29 @@ from dotenv import load_dotenv
 
 load_dotenv()  # no-op in CI where real env vars are already set
 
+
+def _get_secret(name: str, default: str = "") -> str:
+    """Read a secret from env, falling back to Streamlit secrets if available.
+    This makes the same code work locally (.env), in GitHub Actions (env),
+    and on Streamlit Community Cloud (st.secrets).
+    """
+    val = os.getenv(name)
+    if val:
+        return val
+    try:
+        import streamlit as st  # type: ignore
+        if hasattr(st, "secrets") and name in st.secrets:
+            return str(st.secrets[name])
+    except Exception:
+        pass
+    return default
+
+
 # ---------------------------------------------------------------------------
 # API keys
 # ---------------------------------------------------------------------------
-OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "")
-OPENAQ_API_KEY = os.getenv("OPENAQ_API_KEY", "")  # OpenAQ v3 requires an API key
+OPENWEATHER_API_KEY = _get_secret("OPENWEATHER_API_KEY", "")
+OPENAQ_API_KEY = _get_secret("OPENAQ_API_KEY", "")  # OpenAQ v3 requires an API key
 
 # ---------------------------------------------------------------------------
 # Feature store: Hopsworks (default, free serverless tier) settings.
@@ -23,10 +43,16 @@ OPENAQ_API_KEY = os.getenv("OPENAQ_API_KEY", "")  # OpenAQ v3 requires an API ke
 # see src/features/feature_store.py — so the pipeline still works even
 # without a Hopsworks account, just with local storage instead.
 # ---------------------------------------------------------------------------
-USE_HOPSWORKS = os.getenv("USE_HOPSWORKS", "true").lower() == "true"
-HOPSWORKS_API_KEY = os.getenv("HOPSWORKS_API_KEY", "")
-HOPSWORKS_PROJECT_NAME = os.getenv("HOPSWORKS_PROJECT_NAME", "")
-HOPSWORKS_HOST = os.getenv("HOPSWORKS_HOST", "")  # blank = app.hopsworks.ai (managed serverless tier)
+# Prefer explicit USE_HOPSWORKS; if unset and no API key, default to local
+# store so Streamlit Cloud / local runs without Hopsworks never fail.
+_raw_use_hw = os.getenv("USE_HOPSWORKS")
+HOPSWORKS_API_KEY = _get_secret("HOPSWORKS_API_KEY", "")
+if _raw_use_hw is None:
+    USE_HOPSWORKS = bool(HOPSWORKS_API_KEY)  # auto-enable only when key present
+else:
+    USE_HOPSWORKS = _raw_use_hw.lower() == "true"
+HOPSWORKS_PROJECT_NAME = _get_secret("HOPSWORKS_PROJECT_NAME", "")
+HOPSWORKS_HOST = _get_secret("HOPSWORKS_HOST", "")  # blank = c.app.hopsworks.ai (managed serverless)
 HOPSWORKS_FEATURE_GROUP_NAME = os.getenv("HOPSWORKS_FEATURE_GROUP_NAME", "aqi_features")
 HOPSWORKS_FEATURE_GROUP_VERSION = int(os.getenv("HOPSWORKS_FEATURE_GROUP_VERSION", "1"))
 

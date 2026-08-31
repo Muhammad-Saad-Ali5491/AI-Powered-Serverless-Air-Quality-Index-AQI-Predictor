@@ -68,7 +68,18 @@ def build_training_matrix(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame,
 
     full = pd.concat(frames, ignore_index=True)
     target_cols = [f"target_{h}h" for h in HORIZONS_HOURS]
-    full = full.dropna(subset=feature_cols + target_cols).reset_index(drop=True)
+
+    # Historical OpenAQ rows usually lack weather features (temp, humidity, ...).
+    # Impute them with 0 so we can still train on pollutant + time features.
+    # Live OpenWeather rows will have real values and override the zeros.
+    for col in feature_cols:
+        if col in full.columns:
+            full[col] = full[col].fillna(0)
+
+    full = full.dropna(subset=target_cols).reset_index(drop=True)
+    # Also drop any remaining rows that still lack essential non-weather features
+    essential = [c for c in feature_cols if c not in config.WEATHER_FEATURES]
+    full = full.dropna(subset=essential).reset_index(drop=True)
 
     X = full[feature_cols]
     y = full[target_cols]
@@ -93,11 +104,13 @@ def train_ridge(X_train, y_train):
 
 
 def train_random_forest(X_train, y_train):
+    # Lightweight defaults so training finishes quickly on free CI / Streamlit
+    # Cloud build environments (still strong enough for a good baseline).
     model = MultiOutputRegressor(
         RandomForestRegressor(
-            n_estimators=200,
-            max_depth=12,
-            min_samples_leaf=3,
+            n_estimators=80,
+            max_depth=10,
+            min_samples_leaf=5,
             n_jobs=-1,
             random_state=42,
         )
@@ -226,8 +239,12 @@ def run_training(df: pd.DataFrame | None = None, epochs: int = 30, prune_stale_a
     candidates = {
         "ridge": train_ridge(X_train, y_train),
         "random_forest": train_random_forest(X_train, y_train),
-        "tensorflow": train_tensorflow(X_train, y_train, X_test, y_test, epochs=epochs),
     }
+    try:
+        import tensorflow as tf  # noqa: F401
+        candidates["tensorflow"] = train_tensorflow(X_train, y_train, X_test, y_test, epochs=epochs)
+    except ImportError:
+        logger.warning("TensorFlow not installed — skipping TensorFlow candidate model.")
 
     results = {}
     best_name, best_metrics, best_bundle = None, None, None

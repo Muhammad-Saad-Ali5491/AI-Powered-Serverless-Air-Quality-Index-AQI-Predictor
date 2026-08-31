@@ -77,7 +77,9 @@ def forecast_city(city_name: str) -> dict:
     if missing:
         raise ValueError(f"Latest feature row for {city.name} is missing columns: {missing}")
 
-    X = pd.DataFrame([latest[feature_cols]])
+    # Impute any remaining NaNs (e.g. weather features on historical-only rows)
+    # with 0 so the model always receives a complete numeric vector.
+    X = pd.DataFrame([latest[feature_cols]]).fillna(0)
     preds = _predict_raw(bundle, X)[0]
     preds = np.clip(preds, 0, 500)
 
