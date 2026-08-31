@@ -92,8 +92,8 @@ class HopsworksFeatureStore(BaseFeatureStore):
 
     Activates when USE_HOPSWORKS=true. Requires HOPSWORKS_API_KEY (and,
     for self-managed clusters, HOPSWORKS_HOST + HOPSWORKS_PROJECT_NAME —
-    leave those blank to use the free managed serverless tier at
-    app.hopsworks.ai, which infers the project from the API key).
+    leave those blank to use the free managed serverless tier, which
+    defaults to the "c.app.hopsworks.ai" host below).
 
     Every write also lands in the local Parquet cache first, so bulk
     training reads (which need full history, not point lookups) stay fast
@@ -101,15 +101,31 @@ class HopsworksFeatureStore(BaseFeatureStore):
     unreachable.
     """
 
+    # The public hostname for Hopsworks' free managed serverless tier, as
+    # opposed to app.hopsworks.ai (the web UI's hostname, not the API's).
+    _SERVERLESS_HOST = "c.app.hopsworks.ai"
+
     def __init__(self):
         import hopsworks  # imported lazily so it's optional
 
         if not config.HOPSWORKS_API_KEY:
             raise ValueError("HOPSWORKS_API_KEY must be set when USE_HOPSWORKS=true.")
 
-        login_kwargs = {"api_key_value": config.HOPSWORKS_API_KEY}
-        if config.HOPSWORKS_HOST:
-            login_kwargs["host"] = config.HOPSWORKS_HOST
+        # IMPORTANT: always pass an explicit, non-empty `host` — never
+        # leave it to hopsworks.login()'s own env-var/default resolution.
+        # In "external" execution contexts (GitHub Actions, plain scripts,
+        # CI runners — anything that isn't an interactive Hopsworks-hosted
+        # notebook), that internal resolution raises
+        # "ExternalClientError: host cannot be of type NoneType" whenever
+        # the HOPSWORKS_HOST environment variable is *present but empty*
+        # rather than fully absent — which is exactly what GitHub Actions'
+        # `env:` blocks produce when a repo variable was never configured
+        # (the variable is still set, just to an empty string). Passing
+        # host explicitly here sidesteps that ambiguity entirely.
+        login_kwargs = {
+            "host": config.HOPSWORKS_HOST or self._SERVERLESS_HOST,
+            "api_key_value": config.HOPSWORKS_API_KEY,
+        }
         if config.HOPSWORKS_PROJECT_NAME:
             login_kwargs["project"] = config.HOPSWORKS_PROJECT_NAME
 
