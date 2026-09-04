@@ -74,7 +74,7 @@ def build_feature_table(raw_df: pd.DataFrame) -> pd.DataFrame:
     # Fill remaining gaps sensibly instead of dropping rows outright
     for col in config.DERIVED_FEATURES:
         if col in df.columns:
-            df[col] = df[col].bfill().ffill().fillna(0)
+            df[col] = df.groupby("city")[col].transform(lambda s: s.bfill().ffill()).fillna(0)
 
     for col in config.WEATHER_FEATURES + config.POLLUTANT_FEATURES:
         if col in df.columns:

@@ -59,9 +59,11 @@ def build_training_matrix(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame,
     frames = []
     for city, g in df.groupby("city"):
         g = g.reset_index(drop=True)
+        aqi_by_timestamp = g.set_index("timestamp")["aqi"]
         targets = {}
         for h in HORIZONS_HOURS:
-            targets[f"target_{h}h"] = g["aqi"].shift(-h)
+            target_times = g["timestamp"] + pd.Timedelta(hours=h)
+            targets[f"target_{h}h"] = target_times.map(aqi_by_timestamp)
         target_df = pd.DataFrame(targets)
         combined = pd.concat([g, target_df], axis=1)
         frames.append(combined)
@@ -277,9 +279,24 @@ def run_training(df: pd.DataFrame | None = None, epochs: int = 30, prune_stale_a
     registry["runs"].append(run_record)
 
     current_champion = registry.get("champion")
-    if current_champion is None or is_better(best_metrics, current_champion.get("metrics", {}).get(current_champion.get("model_type"))):
+    promoted = current_champion is None or is_better(
+        best_metrics,
+        current_champion.get("metrics", {}).get(current_champion.get("model_type")),
+    )
+    if promoted:
         registry["champion"] = run_record
         logger.info("New champion model: %s (RMSE=%.3f)", best_name, best_metrics["overall"]["rmse"])
+    else:
+        # Keep the registry history useful without leaving a record that
+        # claims an artifact exists after stale-artifact pruning.
+        artifact_path = MODELS_DIR / artifact_name
+        if artifact_path.exists():
+            artifact_path.unlink()
+        if artifact_name.endswith(".keras"):
+            scaler_path = MODELS_DIR / artifact_name.replace(".keras", "_scaler.joblib")
+            if scaler_path.exists():
+                scaler_path.unlink()
+        run_record["artifact"] = None
 
     _save_registry(registry)
 

@@ -17,7 +17,6 @@ import streamlit as st
 from src import config
 from src.features.feature_store import get_feature_store
 from src.inference.predict import forecast_city, ModelNotTrainedError
-from src.explainability.shap_explain import explain_model
 from src.utils.aqi_calc import aqi_category
 
 st.set_page_config(page_title="Pearls AQI Predictor — Pakistan", page_icon="🌫️", layout="wide")
@@ -137,6 +136,8 @@ def render_history(city: str):
 def render_shap(city: str):
     st.subheader("🔍 Why this forecast? (SHAP feature importance)")
     try:
+        from src.explainability.shap_explain import explain_model
+
         explanation = explain_model(city=city)
     except Exception as exc:
         st.info(f"SHAP explanation unavailable yet: {exc}")

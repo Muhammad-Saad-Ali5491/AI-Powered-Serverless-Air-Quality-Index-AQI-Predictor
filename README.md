@@ -118,7 +118,7 @@ pearls-aqi-predictor/
 ├── tests/                      # pytest unit + integration tests
 ├── data/features/               # local feature store cache (Parquet, versioned by CI)
 ├── models/                      # trained model artifact (champion only) + registry.json
-└── requirements.txt              # includes hopsworks[python] by default
+└── requirements.txt              # Streamlit/ML/runtime dependencies
 ```
 
 ---
@@ -157,13 +157,11 @@ cp .env.example .env
 # edit .env and paste your API keys
 ```
 
-> `requirements.txt` pins `pandas==2.1.4` and `protobuf==4.25.4` specifically
-> because the Hopsworks client requires `pandas<2.2.0` and
-> `protobuf>=4.25.4,<5.0.0`, and TensorFlow 2.16 needs `protobuf<5.0.0` too —
-> these exact pins are the tested, working intersection of all three. Don't
-> loosen them without re-testing; mismatched protobuf versions in particular
-> can crash the Python interpreter on import rather than raising a normal
-> exception.
+> `requirements.txt` keeps pandas below 2.2 for compatibility with the
+> optional Hopsworks client. Hopsworks is not installed in the Streamlit/CI
+> base environment; workflows use the local Parquet cache by default. Enable
+> Hopsworks deliberately with `USE_HOPSWORKS=true` and install
+> `requirements-hopsworks.txt` in a dedicated pipeline environment.
 
 ### Run the pipeline end-to-end
 
@@ -239,9 +237,9 @@ Set these under **Repo → Settings → Secrets and variables → Actions**:
 | `HOPSWORKS_API_KEY` | recommended | enables the default Hopsworks feature store; without it, workflows automatically fall back to the local Parquet store |
 
 Optionally set repo **variables** (not secrets): `USE_HOPSWORKS` (defaults to
-`true`), `HOPSWORKS_PROJECT_NAME`, `HOPSWORKS_HOST` — only needed for
-self-managed Hopsworks clusters; leave unset to use the free managed tier
-at app.hopsworks.ai.
+`false`), `HOPSWORKS_PROJECT_NAME`, `HOPSWORKS_HOST`. Set `USE_HOPSWORKS=true`
+only after adding the Hopsworks API key and validating the feature-store
+connection; otherwise the workflows use the committed local Parquet cache.
 
 The workflows use `permissions: contents: write` and push commits with
 `[skip ci]` in the message so the hourly/daily jobs don't trigger the test
@@ -272,3 +270,13 @@ configurable in `src/config.py`.
 
 Python • scikit-learn • TensorFlow • GitHub Actions • **Hopsworks Feature
 Store** • Streamlit • Flask • OpenWeather API • OpenAQ API • SHAP • Git
+
+## 9. Submission report
+
+The generated project report is available at
+`reports/Pearls_AQI_Project_Report.pdf`. Rebuild it after changing the model
+registry or project description with:
+
+```bash
+python scripts/generate_report.py
+```

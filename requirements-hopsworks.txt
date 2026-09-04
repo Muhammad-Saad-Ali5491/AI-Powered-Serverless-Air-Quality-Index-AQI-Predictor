@@ -1,7 +1,6 @@
 # Optional: only needed if you set USE_HOPSWORKS=true.
 #
-# IMPORTANT: the `hopsworks` client pins pandas<2.2.0, which conflicts with
-# pandas==2.2.2 in the main requirements.txt. Do NOT install this into the
+# IMPORTANT: the `hopsworks` client pins pandas<2.2.0. Do NOT install this into the
 # same environment as requirements.txt for local dev.
 #
 # Recommended usage:
@@ -17,8 +16,8 @@
 #     CI runs never pay the install cost or hit the pandas conflict unless
 #     you've opted in.
 #
-# Training/inference code itself (src/training, src/inference) still uses
-# pandas==2.2.2 as normal — hopsworks is only imported inside
+# Training/inference code itself (src/training, src/inference) uses the main
+# pandas constraint — hopsworks is only imported inside
 # HopsworksFeatureStore, and only for feature read/write calls, which the
 # `hopsworks`/`hsfs` client handles internally regardless of the caller's
 # pandas version in practice. If you hit a runtime pandas-version error

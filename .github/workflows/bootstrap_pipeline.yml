@@ -49,7 +49,7 @@ jobs:
       - name: Run historical backfill (OpenAQ, up to 4 years)
         env:
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
-          USE_HOPSWORKS: ${{ vars.USE_HOPSWORKS || 'true' }}
+          USE_HOPSWORKS: ${{ vars.USE_HOPSWORKS || 'false' }}
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
           HOPSWORKS_PROJECT_NAME: ${{ vars.HOPSWORKS_PROJECT_NAME }}
           HOPSWORKS_HOST: ${{ vars.HOPSWORKS_HOST }}
@@ -59,7 +59,7 @@ jobs:
       - name: Fetch one live OpenWeather snapshot (adds current weather features)
         env:
           OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
-          USE_HOPSWORKS: ${{ vars.USE_HOPSWORKS || 'true' }}
+          USE_HOPSWORKS: ${{ vars.USE_HOPSWORKS || 'false' }}
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
           HOPSWORKS_PROJECT_NAME: ${{ vars.HOPSWORKS_PROJECT_NAME }}
           HOPSWORKS_HOST: ${{ vars.HOPSWORKS_HOST }}
@@ -68,7 +68,7 @@ jobs:
 
       - name: Train the first model
         env:
-          USE_HOPSWORKS: ${{ vars.USE_HOPSWORKS || 'true' }}
+          USE_HOPSWORKS: ${{ vars.USE_HOPSWORKS || 'false' }}
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
           HOPSWORKS_PROJECT_NAME: ${{ vars.HOPSWORKS_PROJECT_NAME }}
           HOPSWORKS_HOST: ${{ vars.HOPSWORKS_HOST }}
