@@ -125,9 +125,26 @@ pearls-aqi-predictor/
 └── requirements.txt              # Streamlit/ML/runtime dependencies
 ```
 
+## 3. Architecture diagrams
+
+The system is documented at three levels, from the deployment context down to
+the model-training flow:
+
+### Level 0: System context
+
+![Level 0 system context](Architecture/level0_context.png)
+
+### Level 1: Application subsystems
+
+![Level 1 application subsystems](Architecture/level1_subsystems.png)
+
+### Level 2: Training pipeline
+
+![Level 2 training pipeline](Architecture/level2_training_pipeline.png)
+
 ---
 
-## 3. Quickstart (optional local development)
+## 4. Quickstart (optional local development)
 
 ### Prerequisites
 - Python 3.10 or 3.11
@@ -202,7 +219,7 @@ section 1.)
 
 ---
 
-## 4. Running tests (debugging / CI)
+## 5. Running tests (debugging / CI)
 
 ```bash
 pip install -r requirements.txt
@@ -221,7 +238,7 @@ so they run the same way locally and in GitHub Actions CI.
 
 ---
 
-## 5. Automated pipelines (GitHub Actions)
+## 6. Automated pipelines (GitHub Actions)
 
 | Workflow | Trigger | What it does |
 |---|---|---|
@@ -251,7 +268,7 @@ workflow in a loop.
 
 ---
 
-## 6. AQI methodology
+## 7. AQI methodology
 
 Raw pollutant concentrations (PM2.5, PM10, NO₂, SO₂, CO, O₃) from OpenAQ /
 OpenWeather are converted to the **US EPA Air Quality Index** using the
@@ -261,7 +278,7 @@ pollutants, per EPA methodology.
 
 ---
 
-## 7. Alerts
+## 8. Alerts
 
 The Flask API exposes `GET /alerts`, and the Streamlit dashboard surfaces a
 red banner, whenever any city's 3-day forecast crosses
@@ -270,12 +287,12 @@ configurable in `src/config.py`.
 
 ---
 
-## 8. Tech stack
+## 9. Tech stack
 
 Python • scikit-learn • TensorFlow • GitHub Actions • **Hopsworks Feature
 Store** • Streamlit • Flask • OpenWeather API • OpenAQ API • SHAP • Git
 
-## 9. Submission report
+## 10. Submission report
 
 The generated project report is available at
 `reports/Pearls_AQI_Project_Report.pdf`. Rebuild it after changing the model

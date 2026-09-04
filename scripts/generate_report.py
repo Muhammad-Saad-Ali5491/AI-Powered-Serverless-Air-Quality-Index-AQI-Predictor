@@ -13,8 +13,10 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.utils import ImageReader
 from reportlab.lib.units import inch
 from reportlab.platypus import (
+    Image as ReportImage,
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
@@ -30,6 +32,7 @@ from src.utils.paths import MODELS_DIR
 
 REPORT_DIR = Path(__file__).resolve().parents[1] / "reports"
 REPORT_PATH = REPORT_DIR / "Pearls_AQI_Project_Report.pdf"
+ARCHITECTURE_DIR = Path(__file__).resolve().parents[1] / "Architecture"
 
 
 def _paragraph(text: str, style: ParagraphStyle) -> Paragraph:
@@ -118,6 +121,18 @@ def _footer(canvas, document):
     canvas.restoreState()
 
 
+def _architecture_image(filename: str, caption: str, styles: dict) -> list:
+    path = ARCHITECTURE_DIR / filename
+    if not path.exists():
+        return [_paragraph(f"Architecture asset unavailable: {filename}", styles["BodyText"])]
+    width, height = ImageReader(str(path)).getSize()
+    max_width = 6.45 * inch
+    scale = min(1.0, max_width / width)
+    image = ReportImage(str(path), width=width * scale, height=height * scale)
+    image.hAlign = "CENTER"
+    return [image, Spacer(1, 0.08 * inch), Paragraph(caption, styles["FigureCaption"]), Spacer(1, 0.18 * inch)]
+
+
 def build_story(styles: dict) -> list:
     registry_path = MODELS_DIR / "registry.json"
     registry = json.loads(registry_path.read_text()) if registry_path.exists() else {}
@@ -139,6 +154,10 @@ def build_story(styles: dict) -> list:
         Paragraph("2. System Architecture", heading),
         _paragraph("Raw weather and air-pollution data are fetched from OpenWeather for current observations. Historical pollutant observations are obtained from OpenAQ. The feature pipeline computes EPA-style AQI, calendar features, lag features, rolling statistics, and AQI change rates. Features are written to the local Parquet cache and, when explicitly enabled, to Hopsworks.", body),
         _paragraph("The training pipeline creates multi-output targets for 24h, 48h, and 72h horizons, compares Ridge Regression, Random Forest, Extra Trees, Histogram Gradient Boosting, XGBoost, and optionally TensorFlow, and records metrics in the model registry. Streamlit loads the champion model and latest city row to render forecasts, history, alerts, model comparisons, and optional SHAP explanations.", body),
+        Paragraph("Architecture views", styles["Heading3"]),
+        *_architecture_image("level0_context.png", "Figure 1. System context: users, external data providers, automation, and the deployed dashboard.", styles),
+        *_architecture_image("level1_subsystems.png", "Figure 2. Application subsystems: data ingestion, feature storage, model registry, inference, and explainability.", styles),
+        *_architecture_image("level2_training_pipeline.png", "Figure 3. Training pipeline: feature retrieval, candidate evaluation, champion promotion, and artifact storage.", styles),
         Spacer(1, 0.15 * inch),
         Paragraph("3. Feature Pipeline", heading),
         _paragraph("The engineered schema includes hour, day, month, day of week, weekend flag, day of year, temperature, humidity, pressure, wind speed and direction, cloud cover, PM2.5, PM10, NO2, SO2, CO, O3, AQI lags at 1h/24h/72h, 24-hour rolling mean and standard deviation, and AQI change rates at 1h/24h.", body),
@@ -200,6 +219,7 @@ def main() -> None:
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name="Subtitle", parent=styles["Normal"], fontSize=15, leading=20, alignment=TA_CENTER, textColor=colors.HexColor("#367c78")))
     styles.add(ParagraphStyle(name="CoverLabel", parent=styles["Normal"], fontSize=11, leading=15, alignment=TA_CENTER, textColor=colors.HexColor("#52616b")))
+    styles.add(ParagraphStyle(name="FigureCaption", parent=styles["Normal"], fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.HexColor("#66808a")))
     styles["Title"].fontSize = 30
     styles["Title"].leading = 36
     styles["Title"].alignment = TA_CENTER
