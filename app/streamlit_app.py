@@ -220,8 +220,27 @@ def render_history(city: str):
     chart_df = _chart_history(df)
     fig = px.area(chart_df, x="timestamp", y="aqi", title=None)
     fig.update_traces(line_color="#0d7773", fillcolor="rgba(13,119,115,.14)")
-    fig.update_layout(height=330, margin=dict(l=8, r=8, t=18, b=8), yaxis_title="AQI", xaxis_title=None, plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)")
+    fig.update_layout(height=330, margin=dict(l=8, r=8, t=18, b=8), yaxis_title="AQI", xaxis_title=None, plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)", yaxis=dict(gridcolor="#e5efeb"))
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+    eda_left, eda_right = st.columns(2)
+    with eda_left:
+        st.markdown("#### AQI distribution")
+        distribution = px.histogram(chart_df, x="aqi", nbins=30, color_discrete_sequence=["#0d7773"])
+        distribution.add_vline(x=config.HAZARDOUS_AQI_THRESHOLD, line_dash="dash", line_color="#e85f38", annotation_text="Alert threshold")
+        distribution.update_layout(height=300, margin=dict(l=8, r=8, t=10, b=8), xaxis_title="AQI", yaxis_title="Observations", plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(distribution, use_container_width=True, config={"displayModeBar": False})
+    with eda_right:
+        st.markdown("#### When is air quality highest?")
+        heat_source = df[["timestamp", "aqi"]].copy()
+        heat_source["timestamp"] = pd.to_datetime(heat_source["timestamp"], utc=True)
+        heat_source["hour"] = heat_source["timestamp"].dt.hour
+        heat_source["weekday"] = heat_source["timestamp"].dt.day_name()
+        weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        heat = heat_source.pivot_table(index="weekday", columns="hour", values="aqi", aggfunc="mean").reindex(weekday_order)
+        heatmap = go.Figure(go.Heatmap(z=heat.values, x=heat.columns, y=heat.index, colorscale=[[0, "#e9f6df"], [.45, "#f9d88f"], [1, "#e85f38"]], colorbar=dict(title="AQI"), hovertemplate="%{y}, %{x}:00<br>Mean AQI %{z:.0f}<extra></extra>"))
+        heatmap.update_layout(height=300, margin=dict(l=8, r=8, t=10, b=8), xaxis_title="Hour of day", yaxis_title=None, plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(heatmap, use_container_width=True, config={"displayModeBar": False})
 
     with st.expander("Explore pollutant signals"):
         pollutant_cols = [c for c in config.POLLUTANTS if c in df.columns]
@@ -255,7 +274,7 @@ def render_shap(city: str):
     with right:
         st.markdown("#### This city's latest row")
         fig = px.bar(contribution_df, x="shap_value", y="feature", orientation="h", color="shap_value", color_continuous_scale=["#ef9b62", "#f7f3e8", "#0d7773"], color_continuous_midpoint=0)
-        fig.update_layout(height=440, margin=dict(l=8, r=8, t=10, b=8), xaxis_title="Contribution to 24h forecast", yaxis_title=None, coloraxis_showscale=False, plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)", zeroline=True, zerolinecolor="#879c9d")
+        fig.update_layout(height=440, margin=dict(l=8, r=8, t=10, b=8), xaxis_title="Contribution to 24h forecast", yaxis_title=None, coloraxis_showscale=False, plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)", xaxis=dict(zeroline=True, zerolinecolor="#879c9d"))
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     with st.expander("View explanation data"):
         st.dataframe(pd.DataFrame(explanation["feature_importance"]), use_container_width=True, hide_index=True)

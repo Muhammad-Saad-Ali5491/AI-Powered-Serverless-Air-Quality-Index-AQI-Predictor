@@ -61,6 +61,63 @@ def _metrics_table(registry: dict, styles: dict) -> Table:
     return table
 
 
+def _table(rows: list[list[str]], widths: list[float], header: bool = True) -> Table:
+    table = Table(rows, colWidths=widths, repeatRows=1 if header else 0)
+    style = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#163f49")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#c6d8d4")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#172a3a")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("PADDING", (0, 0), (-1, -1), 6),
+    ]
+    for row in range(1, len(rows)):
+        if row % 2 == 0:
+            style.append(("BACKGROUND", (0, row), (-1, row), colors.HexColor("#f1f7f5")))
+    if not header:
+        style = style[2:]
+    table.setStyle(TableStyle(style))
+    return table
+
+
+def _model_comparison_table(registry: dict) -> Table:
+    champion = registry.get("champion", {})
+    metrics_by_model = champion.get("metrics", {})
+    rows = [["Model", "RMSE", "MAE", "R2"]]
+    for model_name, metrics in metrics_by_model.items():
+        overall = metrics.get("overall", {})
+        rows.append([
+            model_name.replace("_", " ").title(),
+            f"{overall.get('rmse', 0):.3f}",
+            f"{overall.get('mae', 0):.3f}",
+            f"{overall.get('r2', 0):.3f}",
+        ])
+    return _table(rows, [2.7 * inch, 1.2 * inch, 1.2 * inch, 1.2 * inch])
+
+
+def _horizon_table(registry: dict) -> Table:
+    champion = registry.get("champion", {})
+    metrics = champion.get("metrics", {}).get(champion.get("model_type"), {}).get("per_horizon", {})
+    rows = [["Horizon", "RMSE", "MAE", "R2"]]
+    for horizon in ("24h", "48h", "72h"):
+        values = metrics.get(horizon, {})
+        rows.append([horizon, f"{values.get('rmse', 0):.3f}", f"{values.get('mae', 0):.3f}", f"{values.get('r2', 0):.3f}"])
+    return _table(rows, [2.7 * inch, 1.2 * inch, 1.2 * inch, 1.2 * inch])
+
+
+def _footer(canvas, document):
+    canvas.saveState()
+    canvas.setStrokeColor(colors.HexColor("#c6d8d4"))
+    canvas.line(document.leftMargin, 0.48 * inch, A4[0] - document.rightMargin, 0.48 * inch)
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(colors.HexColor("#66808a"))
+    canvas.drawString(document.leftMargin, 0.3 * inch, "Pearls AQI Predictor | Project report")
+    canvas.drawRightString(A4[0] - document.rightMargin, 0.3 * inch, f"Page {document.page}")
+    canvas.restoreState()
+
+
 def build_story(styles: dict) -> list:
     registry_path = MODELS_DIR / "registry.json"
     registry = json.loads(registry_path.read_text()) if registry_path.exists() else {}
@@ -94,17 +151,45 @@ def build_story(styles: dict) -> list:
         _paragraph("The model-selection process uses a chronological train/test split to reduce leakage from future observations. Candidate models are evaluated using RMSE, MAE, and R2. The best candidate is stored as the champion and its feature schema is recorded with the artifact.", body),
         Spacer(1, 0.15 * inch),
         _metrics_table(registry, styles),
+        Spacer(1, 0.18 * inch),
+        Paragraph("Candidate comparison", styles["Heading3"]),
+        _model_comparison_table(registry),
+        Spacer(1, 0.18 * inch),
+        Paragraph("Champion performance by horizon", styles["Heading3"]),
+        _horizon_table(registry),
         Spacer(1, 0.2 * inch),
         Paragraph("6. Automation and Deployment", heading),
         _paragraph("GitHub Actions provides four operational workflows: CI tests on pushes and pull requests, a manual bootstrap for historical backfill and initial training, an hourly feature pipeline, and daily model training. The workflows default to the local cache unless the USE_HOPSWORKS repository variable is explicitly set to true, making the default path reliable without an external feature-store account.", body),
-        _paragraph("Streamlit Community Cloud should be configured with app/streamlit_app.py as the main file and Python 3.11. The checked-in data/features/aqi_features.parquet, models/registry.json, and champion artifact allow the dashboard to open before the first live pipeline run. API keys belong in Streamlit Secrets or GitHub Actions Secrets and are never embedded in source code.", body),
+        _paragraph("Streamlit Community Cloud should be configured with app/streamlit_app.py as the main file and a supported modern Python runtime. The checked-in data/features/aqi_features.parquet, models/registry.json, and champion artifact allow the dashboard to open before the first live pipeline run. API keys belong in Streamlit Secrets or GitHub Actions Secrets and are never embedded in source code.", body),
+        Paragraph("Operational workflow", styles["Heading3"]),
+        _table([
+            ["Workflow", "Cadence", "Responsibility"],
+            ["CI test suite", "Push / pull request", "Compile code and run unit/integration tests"],
+            ["Feature pipeline", "Every hour", "Fetch observations, engineer features, update cache"],
+            ["Training pipeline", "Daily", "Compare candidates, promote champion, prune artifacts"],
+            ["Bootstrap pipeline", "Manual", "Backfill history and create the first model"],
+        ], [1.45 * inch, 1.35 * inch, 3.5 * inch]),
+        PageBreak(),
+        Paragraph("7. Feature Inventory", heading),
+        _paragraph("The feature design combines short-term persistence, seasonal context, atmospheric conditions, and pollutant measurements. This gives the model both the current state of the city and signals that help it distinguish recurring daily patterns from sudden changes.", body),
+        _table([
+            ["Group", "Features", "Purpose"],
+            ["Time", "hour, day, month, day_of_week, is_weekend, day_of_year", "Capture daily and seasonal cycles"],
+            ["Weather", "temp, humidity, pressure, wind_speed, wind_deg, clouds", "Represent dispersion and atmospheric conditions"],
+            ["Pollutants", "PM2.5, PM10, NO2, SO2, CO, O3", "Measure the current pollution mixture"],
+            ["Dynamics", "AQI lags, rolling mean/std, change rates", "Capture persistence, volatility, and direction"],
+        ], [1.0 * inch, 3.0 * inch, 2.3 * inch]),
+        Spacer(1, 0.2 * inch),
+        Paragraph("8. Dashboard and Explainability", heading),
+        _paragraph("The dashboard is organized around four user questions: What is the current AQI? What will happen over the next three days? What patterns are visible in the historical data? Why did the model make this forecast? The forecast view uses a gauge, KPI cards, colored AQI bands, and a compact timeline. The EDA view adds an AQI distribution and an hour-by-weekday heatmap. The explainability view provides global feature importance and signed current-row contributions using SHAP.", body),
+        _paragraph("SHAP is loaded only when the explainability tab is opened, its calculations are cached, and the chart input is bounded. This keeps the main dashboard responsive while preserving model transparency for users who need it.", body),
         Spacer(1, 0.15 * inch),
-        Paragraph("7. Dashboard Features", heading),
-        _paragraph("The dashboard provides city selection, current AQI, category labels, three-day forecast bars, historical AQI charts, pollutant trends, all-city comparison, hazardous-level alerts, and SHAP feature importance. SHAP is loaded only when its tab is opened so an optional explainability failure does not prevent the forecast dashboard from starting.", body),
+        Paragraph("9. Data Quality and Reliability", heading),
+        _paragraph("The local Parquet cache is the deployment safety net. Feature writes are de-duplicated by city and timestamp, and Hopsworks is optional. Derived imputation is performed within each city to prevent cross-city leakage. Training targets are joined by timestamp offsets so missing observations do not silently turn a 24-row shift into a false 24-hour horizon.", body),
         Spacer(1, 0.15 * inch),
-        Paragraph("8. Limitations and Future Work", heading),
-        _paragraph("Forecast quality depends on station coverage, API freshness, and the availability of complete hourly observations. The present implementation uses row-based horizons and should be upgraded to timestamp-based joins or hourly resampling when production data contain gaps. Future work should add calibrated uncertainty intervals, richer station-level spatial features, drift monitoring, and a dedicated alert delivery channel.", body),
-        Paragraph("9. Reproduction Checklist", heading),
+        Paragraph("10. Limitations and Future Work", heading),
+        _paragraph("Forecast quality depends on station coverage, API freshness, and the availability of complete hourly observations. Timestamp-based target joins correctly omit unavailable future observations, but longer-term production work should add explicit hourly resampling and missingness indicators. Future work should add calibrated uncertainty intervals, richer station-level spatial features, drift monitoring, and a dedicated alert delivery channel.", body),
+        Paragraph("11. Reproduction Checklist", heading),
         _paragraph("1. Configure OPENWEATHER_API_KEY and optionally OPENAQ_API_KEY and HOPSWORKS_API_KEY. 2. Run the bootstrap workflow once. 3. Confirm the CI workflow passes. 4. Deploy app/streamlit_app.py on Streamlit Community Cloud using Python 3.11. 5. Run the hourly and daily workflows manually once to verify repository write permissions.", body),
     ]
     return story
@@ -121,6 +206,9 @@ def main() -> None:
     styles["Heading2"].textColor = colors.HexColor("#1f5f5b")
     styles["Heading2"].spaceBefore = 8
     styles["Heading2"].spaceAfter = 10
+    styles["Heading3"].textColor = colors.HexColor("#367c78")
+    styles["Heading3"].spaceBefore = 6
+    styles["Heading3"].spaceAfter = 7
     styles["BodyText"].fontSize = 10.5
     styles["BodyText"].leading = 16
     styles["BodyText"].spaceAfter = 9
@@ -135,7 +223,7 @@ def main() -> None:
         title="Pearls AQI Predictor Project Report",
         author="Pearls AQI Predictor",
     )
-    document.build(build_story(styles))
+    document.build(build_story(styles), onFirstPage=_footer, onLaterPages=_footer)
     print(f"Wrote {REPORT_PATH}")
 
 
