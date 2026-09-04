@@ -157,11 +157,11 @@ cp .env.example .env
 # edit .env and paste your API keys
 ```
 
-> `requirements.txt` keeps pandas below 2.2 for compatibility with the
-> optional Hopsworks client. Hopsworks is not installed in the Streamlit/CI
-> base environment; workflows use the local Parquet cache by default. Enable
-> Hopsworks deliberately with `USE_HOPSWORKS=true` and install
-> `requirements-hopsworks.txt` in a dedicated pipeline environment.
+> The Streamlit/CI requirements use current pandas and NumPy releases with
+> prebuilt wheels for modern Python versions, including Python 3.14. Hopsworks
+> is not installed in the dashboard environment; workflows use the local
+> Parquet cache by default. Enable Hopsworks deliberately with
+> `USE_HOPSWORKS=true` and install `requirements-hopsworks.txt` separately.
 
 ### Run the pipeline end-to-end
 

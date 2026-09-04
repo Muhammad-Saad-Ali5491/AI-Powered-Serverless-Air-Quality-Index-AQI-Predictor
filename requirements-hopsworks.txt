@@ -1,7 +1,7 @@
 # Optional: only needed if you set USE_HOPSWORKS=true.
 #
-# IMPORTANT: the `hopsworks` client pins pandas<2.2.0. Do NOT install this into the
-# same environment as requirements.txt for local dev.
+# IMPORTANT: Hopsworks has its own dependency constraints. Do NOT install this
+# into the Streamlit deployment environment or combine it with requirements.txt.
 #
 # Recommended usage:
 #   - Locally: create a separate venv just for backfill/feature-pipeline
@@ -9,18 +9,15 @@
 #       python -m venv venv-hopsworks
 #       venv-hopsworks\Scripts\activate      (Windows)
 #       source venv-hopsworks/bin/activate   (macOS/Linux)
-#       pip install -r requirements.txt -r requirements-hopsworks.txt
+#       pip install -r requirements-hopsworks.txt
 #   - CI (GitHub Actions): the feature_pipeline.yml and training_pipeline.yml
 #     workflows install this file automatically in a dedicated step only
 #     when the USE_HOPSWORKS repo variable is set to "true", so day-to-day
 #     CI runs never pay the install cost or hit the pandas conflict unless
 #     you've opted in.
 #
-# Training/inference code itself (src/training, src/inference) uses the main
-# pandas constraint — hopsworks is only imported inside
-# HopsworksFeatureStore, and only for feature read/write calls, which the
-# `hopsworks`/`hsfs` client handles internally regardless of the caller's
-# pandas version in practice. If you hit a runtime pandas-version error
-# from hsfs specifically, pin pandas==2.1.4 in this file's environment too.
+# Hopsworks is imported lazily inside HopsworksFeatureStore. The default GitHub
+# Actions workflows use the local Parquet cache, so this optional environment
+# is only needed when USE_HOPSWORKS=true.
 
 hopsworks
