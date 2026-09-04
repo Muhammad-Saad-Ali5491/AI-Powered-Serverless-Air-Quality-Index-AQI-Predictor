@@ -727,6 +727,97 @@
       "n_train_rows": 52980,
       "n_test_rows": 13245,
       "python_platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39"
+    },
+    {
+      "run_id": "random_forest_20260904T123841Z",
+      "timestamp": "20260904T123841Z",
+      "model_type": "random_forest",
+      "artifact": null,
+      "feature_columns": [
+        "hour",
+        "day",
+        "month",
+        "day_of_week",
+        "is_weekend",
+        "day_of_year",
+        "temp",
+        "humidity",
+        "pressure",
+        "wind_speed",
+        "wind_deg",
+        "clouds",
+        "pm25",
+        "pm10",
+        "no2",
+        "so2",
+        "co",
+        "o3",
+        "aqi_lag_1h",
+        "aqi_lag_24h",
+        "aqi_lag_72h",
+        "aqi_rolling_mean_24h",
+        "aqi_rolling_std_24h",
+        "aqi_change_rate_1h",
+        "aqi_change_rate_24h"
+      ],
+      "horizons_hours": [
+        24,
+        48,
+        72
+      ],
+      "metrics": {
+        "ridge": {
+          "overall": {
+            "rmse": 38.37363677782832,
+            "mae": 28.74061395993894,
+            "r2": 0.5509872977513528
+          },
+          "per_horizon": {
+            "24h": {
+              "rmse": 35.311199252289725,
+              "mae": 26.017578399754846,
+              "r2": 0.6148282393382705
+            },
+            "48h": {
+              "rmse": 38.852811657929756,
+              "mae": 29.409068752286217,
+              "r2": 0.539278106270676
+            },
+            "72h": {
+              "rmse": 40.757652438635674,
+              "mae": 30.79519472777575,
+              "r2": 0.5003505988404655
+            }
+          }
+        },
+        "random_forest": {
+          "overall": {
+            "rmse": 34.15417487562618,
+            "mae": 25.960906968093855,
+            "r2": 0.644302918629972
+          },
+          "per_horizon": {
+            "24h": {
+              "rmse": 32.419376788639156,
+              "mae": 24.113096091204103,
+              "r2": 0.6753324918721844
+            },
+            "48h": {
+              "rmse": 34.49668873580543,
+              "mae": 26.356638591923996,
+              "r2": 0.6367975535983048
+            },
+            "72h": {
+              "rmse": 35.4751386072805,
+              "mae": 27.412986221153474,
+              "r2": 0.6214744055600148
+            }
+          }
+        }
+      },
+      "n_train_rows": 52980,
+      "n_test_rows": 13245,
+      "python_platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39"
     }
   ],
   "champion": {
