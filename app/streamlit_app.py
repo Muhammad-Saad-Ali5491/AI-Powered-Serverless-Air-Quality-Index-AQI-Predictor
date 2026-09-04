@@ -82,6 +82,26 @@ def _load_history(city: str) -> pd.DataFrame:
     return df
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _load_forecast(city: str) -> dict:
+    return forecast_city(city)
+
+
+def _chart_history(df: pd.DataFrame, max_points: int = 1500) -> pd.DataFrame:
+    """Keep Plotly responsive when the repository contains years of hourly data."""
+    if len(df) <= max_points:
+        return df
+    numeric_cols = list(df.select_dtypes(include="number").columns)
+    compact = (
+        df.set_index("timestamp")[numeric_cols]
+        .resample("6h")
+        .mean()
+        .dropna(subset=["aqi"])
+        .reset_index()
+    )
+    return compact
+
+
 @st.cache_data(ttl=600, show_spinner=False)
 def _load_explanation(city: str) -> dict:
     from src.explainability.shap_explain import explain_model
@@ -111,7 +131,7 @@ def render_sidebar() -> str:
 
 def render_current_and_forecast(city: str):
     try:
-        result = forecast_city(city)
+        result = _load_forecast(city)
     except ModelNotTrainedError:
         st.warning(
             "⚠️ No trained model yet. Run the backfill + training pipeline first "
@@ -197,7 +217,8 @@ def render_history(city: str):
         with column:
             st.markdown(f'<div class="mini-card"><div class="mini-label">{label}</div><div class="mini-value">{value}</div><div class="mini-note">AQI index</div></div>', unsafe_allow_html=True)
 
-    fig = px.area(df, x="timestamp", y="aqi", title=None)
+    chart_df = _chart_history(df)
+    fig = px.area(chart_df, x="timestamp", y="aqi", title=None)
     fig.update_traces(line_color="#0d7773", fillcolor="rgba(13,119,115,.14)")
     fig.update_layout(height=330, margin=dict(l=8, r=8, t=18, b=8), yaxis_title="AQI", xaxis_title=None, plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -205,7 +226,7 @@ def render_history(city: str):
     with st.expander("Explore pollutant signals"):
         pollutant_cols = [c for c in config.POLLUTANTS if c in df.columns]
         if pollutant_cols:
-            pollutant_df = df.melt(id_vars="timestamp", value_vars=pollutant_cols, var_name="Pollutant", value_name="Concentration")
+            pollutant_df = chart_df.melt(id_vars="timestamp", value_vars=[c for c in pollutant_cols if c in chart_df], var_name="Pollutant", value_name="Concentration")
             pollutant_fig = px.line(pollutant_df, x="timestamp", y="Concentration", color="Pollutant")
             pollutant_fig.update_layout(height=330, margin=dict(l=8, r=8, t=18, b=8), plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(pollutant_fig, use_container_width=True, config={"displayModeBar": False})
@@ -241,18 +262,29 @@ def render_shap(city: str):
 
 
 def render_all_cities_overview():
-    st.subheader("🇵🇰 All cities overview")
+    st.markdown('<div class="section-kicker">Pakistan at a glance</div>', unsafe_allow_html=True)
+    st.header("City comparison")
+    st.caption("Compare current AQI with the next 24-hour forecast across every supported city.")
     rows = []
     for c in config.CITY_NAMES:
         try:
-            r = forecast_city(c)
+            r = _load_forecast(c)
             row = {"City": c, "Current AQI": r["current_aqi"], "Category": r["current_category"]}
             for f in r["forecast"]:
                 row[f"+{f['horizon_hours']}h"] = f["predicted_aqi"]
             rows.append(row)
         except Exception:
             rows.append({"City": c, "Current AQI": "N/A", "Category": "N/A"})
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    overview_df = pd.DataFrame(rows)
+    chart_df = overview_df[pd.to_numeric(overview_df["+24h"], errors="coerce").notna()].copy()
+    if not chart_df.empty:
+        chart_df["+24h"] = pd.to_numeric(chart_df["+24h"])
+        chart_df = chart_df.sort_values("+24h")
+        fig = px.bar(chart_df, x="+24h", y="City", orientation="h", color="Category", text="+24h", color_discrete_map=AQI_COLORS)
+        fig.update_traces(textposition="outside", marker_line_width=0)
+        fig.update_layout(height=390, margin=dict(l=8, r=35, t=12, b=8), xaxis_title="Predicted AQI in 24 hours", yaxis_title=None, plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)", legend_title=None)
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.dataframe(overview_df, use_container_width=True, hide_index=True)
 
 
 def main():

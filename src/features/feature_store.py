@@ -23,6 +23,7 @@ so switching backends never requires touching training/inference code.
 """
 from __future__ import annotations
 import abc
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -204,6 +205,7 @@ class HopsworksFeatureStore(BaseFeatureStore):
         return df
 
 
+@lru_cache(maxsize=1)
 def get_feature_store() -> BaseFeatureStore:
     """
     Returns the Hopsworks-backed feature store by default. If Hopsworks

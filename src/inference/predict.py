@@ -7,6 +7,7 @@ Used by both the Streamlit dashboard and the Flask API.
 from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from typing import Optional
 
 import joblib
@@ -27,7 +28,8 @@ class ModelNotTrainedError(RuntimeError):
     pass
 
 
-def load_champion():
+@lru_cache(maxsize=4)
+def _load_champion_cached(registry_mtime_ns: int):
     if not REGISTRY_PATH.exists():
         raise ModelNotTrainedError("No model registry found. Run the training pipeline first.")
     registry = json.loads(REGISTRY_PATH.read_text())
@@ -48,6 +50,13 @@ def load_champion():
         bundle = joblib.load(MODELS_DIR / artifact)
 
     return bundle, champion
+
+
+def load_champion():
+    """Load the champion once per registry version."""
+    if not REGISTRY_PATH.exists():
+        raise ModelNotTrainedError("No model registry found. Run the training pipeline first.")
+    return _load_champion_cached(REGISTRY_PATH.stat().st_mtime_ns)
 
 
 def _predict_raw(bundle: dict, X: pd.DataFrame) -> np.ndarray:
