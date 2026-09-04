@@ -1,4 +1,3 @@
-# Training-only dependencies. Keep these out of Streamlit Cloud to reduce
-# deployment size and startup CPU usage.
+# Training dependencies. XGBoost is also required by Streamlit when the
+# registry promotes an XGBoost champion artifact.
 -r requirements.txt
-xgboost>=2.1.0

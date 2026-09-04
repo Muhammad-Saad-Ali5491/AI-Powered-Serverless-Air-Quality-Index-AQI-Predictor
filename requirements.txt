@@ -4,6 +4,7 @@ numpy>=2.3.3,<3.0.0; python_version >= "3.11"
 requests>=2.32.0
 python-dotenv>=1.0.0
 scikit-learn>=1.7.2
+xgboost>=3.4.1
 joblib>=1.4.0
 pyarrow>=18.0.0
 streamlit>=1.50.0

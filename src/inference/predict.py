@@ -47,7 +47,14 @@ def _load_champion_cached(registry_mtime_ns: int):
         scaler = joblib.load(scaler_path) if scaler_path.exists() else None
         bundle = {"model": model, "scaler": scaler, "type": "tensorflow"}
     else:
-        bundle = joblib.load(MODELS_DIR / artifact)
+        try:
+            bundle = joblib.load(MODELS_DIR / artifact)
+        except ModuleNotFoundError as exc:
+            missing_module = exc.name or "the model dependency"
+            raise ModelNotTrainedError(
+                f"The champion model requires '{missing_module}'. "
+                "Add its package to requirements.txt and redeploy."
+            ) from exc
 
     return bundle, champion
 
