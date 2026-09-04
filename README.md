@@ -5,8 +5,8 @@ cities, using a **100% serverless** ML stack with **Hopsworks** as the feature s
 
 - **Feature pipeline** — hourly, via GitHub Actions → OpenWeather live data → engineered features → written to **Hopsworks Feature Store** (default) with an automatic local Parquet fallback
 - **Historical backfill** — up to 4 years of pollutant history from **OpenAQ**
-- **Training pipeline** — daily, via GitHub Actions → Ridge / Random Forest / TensorFlow, best model auto-promoted
-- **Dashboard** — Streamlit (interactive charts, SHAP explainability, alerts) + a Flask REST API
+- **Training pipeline** — daily, via GitHub Actions → Ridge / Random Forest / XGBoost / TensorFlow, best model auto-promoted
+- **Dashboard** — Streamlit (interactive charts, model comparison, SHAP explainability, alerts) + a Flask REST API
 - **Explainability** — SHAP feature importance for every forecast
 - **Cities covered**: Lahore, Karachi, Islamabad, Rawalpindi, Faisalabad, Multan, Peshawar, Quetta
 
@@ -176,7 +176,7 @@ python -m src.data.backfill_historical
 # 2. (Optional but recommended first) Fetch one live snapshot to prime the feature store
 python scripts/run_feature_pipeline.py
 
-# 3. Train the models (Ridge, Random Forest, TensorFlow) and pick the champion
+# 3. Train the models (Ridge, Random Forest, XGBoost, TensorFlow) and pick the champion
 python scripts/run_training_pipeline.py
 
 # 4. Launch the dashboard
@@ -227,7 +227,7 @@ so they run the same way locally and in GitHub Actions CI.
 |---|---|---|
 | `.github/workflows/bootstrap_pipeline.yml` | manual (Actions tab → Run workflow), once | Backfills ~4 years of OpenAQ history into Hopsworks (+ local cache), fetches one live OpenWeather snapshot, trains the first model, commits everything back |
 | `.github/workflows/feature_pipeline.yml` | every hour | Fetches live OpenWeather data for all 8 cities, engineers features, writes to Hopsworks + the local Parquet cache, commits the cache back to the repo |
-| `.github/workflows/training_pipeline.yml` | daily @ 02:00 UTC | Retrains Ridge / Random Forest / TensorFlow on accumulated feature history, evaluates with RMSE/MAE/R², promotes the best model (pruning stale model files so the repo doesn't grow unbounded), commits `models/` back to the repo |
+| `.github/workflows/training_pipeline.yml` | daily @ 02:00 UTC | Retrains Ridge / Random Forest / XGBoost / TensorFlow on accumulated feature history, evaluates with RMSE/MAE/R², promotes the best model (pruning stale model files so the repo doesn't grow unbounded), commits `models/` back to the repo |
 | `.github/workflows/ci_tests.yml` | every push/PR | Runs the full pytest suite on Python 3.10 & 3.11 |
 
 ### Required GitHub secrets

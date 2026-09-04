@@ -4,6 +4,7 @@ Pearls AQI Predictor — Streamlit Dashboard
 Run:  streamlit run app/streamlit_app.py
 """
 from __future__ import annotations
+import json
 import sys
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from src import config
 from src.features.feature_store import get_feature_store
 from src.inference.predict import forecast_city, ModelNotTrainedError
 from src.utils.aqi_calc import aqi_category
+from src.utils.paths import MODELS_DIR
 
 st.set_page_config(page_title="Pearls AQI Predictor — Pakistan", page_icon="🌫️", layout="wide")
 
@@ -85,6 +87,14 @@ def _load_history(city: str) -> pd.DataFrame:
 @st.cache_data(ttl=300, show_spinner=False)
 def _load_forecast(city: str) -> dict:
     return forecast_city(city)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _load_model_registry() -> dict:
+    registry_path = MODELS_DIR / "registry.json"
+    if not registry_path.exists():
+        return {}
+    return json.loads(registry_path.read_text())
 
 
 def _chart_history(df: pd.DataFrame, max_points: int = 1500) -> pd.DataFrame:
@@ -280,6 +290,59 @@ def render_shap(city: str):
         st.dataframe(pd.DataFrame(explanation["feature_importance"]), use_container_width=True, hide_index=True)
 
 
+def render_model_lab():
+    st.markdown('<div class="section-kicker">Model selection</div>', unsafe_allow_html=True)
+    st.header("Model Lab")
+    st.caption("The champion is selected on the chronological holdout set using the lowest overall RMSE. MAE and R² are shown for context.")
+    registry = _load_model_registry()
+    champion = registry.get("champion", {})
+    metrics_by_model = champion.get("metrics", {})
+    if not metrics_by_model:
+        st.info("Model comparison data will appear after the next training run.")
+        return
+
+    rows = []
+    for model_name, metrics in metrics_by_model.items():
+        overall = metrics.get("overall", {})
+        rows.append({
+            "Model": model_name.replace("_", " ").title(),
+            "RMSE": overall.get("rmse"),
+            "MAE": overall.get("mae"),
+            "R²": overall.get("r2"),
+            "Selected": model_name == champion.get("model_type"),
+        })
+    comparison = pd.DataFrame(rows).sort_values("RMSE")
+    best = comparison.iloc[0]
+    best_col, info_col = st.columns([1, 2])
+    with best_col:
+        st.markdown(
+            f'<div class="hero"><div class="eyebrow" style="color:#ffcf9d">Champion model</div>'
+            f'<h2>{best["Model"]}</h2><p>Lowest holdout RMSE: {best["RMSE"]:.2f}</p></div>',
+            unsafe_allow_html=True,
+        )
+    with info_col:
+        st.markdown("#### How selection works")
+        st.markdown("Every candidate sees the same features and chronological test period. The model with the lowest overall RMSE becomes the champion and is saved to the registry for inference.")
+
+    chart_col, table_col = st.columns([1.2, 1])
+    with chart_col:
+        model_chart = px.bar(comparison, x="RMSE", y="Model", orientation="h", color="Selected", text="RMSE", color_discrete_map={True: "#0d7773", False: "#b8cfca"})
+        model_chart.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+        model_chart.update_layout(height=320, margin=dict(l=8, r=30, t=10, b=8), xaxis_title="Lower is better", yaxis_title=None, plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)", showlegend=False)
+        st.plotly_chart(model_chart, use_container_width=True, config={"displayModeBar": False})
+    with table_col:
+        st.dataframe(comparison.style.format({"RMSE": "{:.3f}", "MAE": "{:.3f}", "R²": "{:.3f}"}), use_container_width=True, hide_index=True)
+
+    selected_metrics = metrics_by_model.get(champion.get("model_type"), {}).get("per_horizon", {})
+    horizon_rows = [{"Horizon": horizon, **values} for horizon, values in selected_metrics.items()]
+    if horizon_rows:
+        st.markdown(f"#### {best['Model']} by forecast horizon")
+        horizon_df = pd.DataFrame(horizon_rows)
+        horizon_chart = px.line(horizon_df, x="Horizon", y=["rmse", "mae"], markers=True, color_discrete_sequence=["#0d7773", "#f27a38"])
+        horizon_chart.update_layout(height=280, margin=dict(l=8, r=8, t=10, b=8), yaxis_title="Error", xaxis_title=None, plot_bgcolor="white", paper_bgcolor="rgba(0,0,0,0)", legend_title=None)
+        st.plotly_chart(horizon_chart, use_container_width=True, config={"displayModeBar": False})
+
+
 def render_all_cities_overview():
     st.markdown('<div class="section-kicker">Pakistan at a glance</div>', unsafe_allow_html=True)
     st.header("City comparison")
@@ -310,7 +373,7 @@ def main():
     render_header()
     city = render_sidebar()
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📈 Forecast", "📊 History & EDA", "🔍 Explainability", "🇵🇰 All Cities"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Forecast", "📊 History & EDA", "🔍 Explainability", "🇵🇰 All Cities", "🧪 Model Lab"])
     with tab1:
         render_current_and_forecast(city)
     with tab2:
@@ -319,6 +382,8 @@ def main():
         render_shap(city)
     with tab4:
         render_all_cities_overview()
+    with tab5:
+        render_model_lab()
 
 
 if __name__ == "__main__":

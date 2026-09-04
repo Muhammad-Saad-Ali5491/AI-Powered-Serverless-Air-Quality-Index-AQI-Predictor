@@ -121,6 +121,27 @@ def train_random_forest(X_train, y_train):
     return {"model": model, "scaler": None, "type": "random_forest"}
 
 
+def train_xgboost(X_train, y_train):
+    """Train a compact gradient-boosting candidate when XGBoost is installed."""
+    from xgboost import XGBRegressor
+
+    model = MultiOutputRegressor(
+        XGBRegressor(
+            n_estimators=180,
+            max_depth=6,
+            learning_rate=0.05,
+            subsample=0.85,
+            colsample_bytree=0.85,
+            objective="reg:squarederror",
+            eval_metric="rmse",
+            n_jobs=-1,
+            random_state=42,
+        )
+    )
+    model.fit(X_train, y_train)
+    return {"model": model, "scaler": None, "type": "xgboost"}
+
+
 def train_tensorflow(X_train, y_train, X_val=None, y_val=None, epochs: int = 30):
     import tensorflow as tf
 
@@ -242,6 +263,10 @@ def run_training(df: pd.DataFrame | None = None, epochs: int = 30, prune_stale_a
         "ridge": train_ridge(X_train, y_train),
         "random_forest": train_random_forest(X_train, y_train),
     }
+    try:
+        candidates["xgboost"] = train_xgboost(X_train, y_train)
+    except ImportError:
+        logger.warning("XGBoost not installed - skipping XGBoost candidate model.")
     try:
         import tensorflow as tf  # noqa: F401
         candidates["tensorflow"] = train_tensorflow(X_train, y_train, X_test, y_test, epochs=epochs)
