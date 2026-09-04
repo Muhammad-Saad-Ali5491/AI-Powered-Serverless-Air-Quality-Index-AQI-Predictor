@@ -10,6 +10,10 @@ cities, using a **100% serverless** ML stack with **Hopsworks** as the feature s
 - **Explainability** — SHAP feature importance for every forecast
 - **Cities covered**: Lahore, Karachi, Islamabad, Rawalpindi, Faisalabad, Multan, Peshawar, Quetta
 
+### Live Dashboard
+
+Open the deployed Streamlit dashboard: [Pearls AQI Predictor](https://ai-powered-serverless-air-quality-index-aqi-predictor-5kdujskm.streamlit.app/)
+
 Built to run identically on **Windows, macOS, and Linux** — all paths use `pathlib`,
 no symlinks, no shell-only tooling required.
 

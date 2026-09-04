@@ -1,5 +1,6 @@
 pandas>=2.3.3,<3.0.0
-numpy>=2.3.3,<3.0.0
+numpy>=1.26.0,<2.3.0; python_version < "3.11"
+numpy>=2.3.3,<3.0.0; python_version >= "3.11"
 requests>=2.32.0
 python-dotenv>=1.0.0
 scikit-learn>=1.7.2
