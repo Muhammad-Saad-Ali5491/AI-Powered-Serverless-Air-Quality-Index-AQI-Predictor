@@ -23,6 +23,18 @@ def _get_background(X: pd.DataFrame, n: int = 100) -> pd.DataFrame:
     return X.sample(n, random_state=42)
 
 
+def _normalise_shap_values(shap_values) -> np.ndarray:
+    """Return a 2-D (rows, features) array across SHAP API versions."""
+    if isinstance(shap_values, list):
+        shap_values = shap_values[0]
+    values = np.asarray(shap_values)
+    if values.ndim == 3:
+        values = values[:, :, 0]
+    if values.ndim != 2:
+        raise ValueError(f"Unexpected SHAP output shape: {values.shape}")
+    return values
+
+
 def explain_model(city: str | None = None, sample_size: int = 200) -> dict:
     """
     Returns mean absolute SHAP value per feature (global importance) for
@@ -37,9 +49,11 @@ def explain_model(city: str | None = None, sample_size: int = 200) -> dict:
     if df.empty:
         raise ValueError("No feature data available to explain.")
 
-    X = df[feature_cols].dropna()
+    df = df.sort_values("timestamp") if "timestamp" in df.columns else df
+    X = df[feature_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
+    latest = X.iloc[[-1]]
     if len(X) > sample_size:
-        X = X.sample(sample_size, random_state=42)
+        X = pd.concat([X.iloc[:-1].sample(sample_size - 1, random_state=42), latest])
 
     scaler = bundle.get("scaler")
     X_model_input = scaler.transform(X) if scaler is not None else X.values
@@ -50,7 +64,7 @@ def explain_model(city: str | None = None, sample_size: int = 200) -> dict:
         # MultiOutputRegressor wraps one RF per horizon; explain horizon 0 (24h)
         estimator = bundle["model"].estimators_[0]
         explainer = shap.TreeExplainer(estimator)
-        shap_values = explainer.shap_values(X_model_input)
+        shap_values = explainer.shap_values(X_model_input, check_additivity=False)
     elif model_type == "ridge":
         estimator = bundle["model"].estimators_[0]
         explainer = shap.LinearExplainer(estimator, X_model_input)
@@ -68,10 +82,17 @@ def explain_model(city: str | None = None, sample_size: int = 200) -> dict:
         )
         shap_values = explainer.shap_values(sample.values, nsamples=100)
 
+    shap_values = _normalise_shap_values(shap_values)
     mean_abs_shap = np.abs(shap_values).mean(axis=0)
+    latest_row = shap_values[-1]
     importance = sorted(
         zip(feature_cols, mean_abs_shap.tolist()),
         key=lambda t: t[1],
+        reverse=True,
+    )
+    contributions = sorted(
+        zip(feature_cols, latest_row.tolist()),
+        key=lambda t: abs(t[1]),
         reverse=True,
     )
 
@@ -79,4 +100,5 @@ def explain_model(city: str | None = None, sample_size: int = 200) -> dict:
         "model_type": model_type,
         "horizon": "24h",
         "feature_importance": [{"feature": f, "mean_abs_shap": v} for f, v in importance],
+        "contributions": [{"feature": f, "shap_value": v} for f, v in contributions],
     }
