@@ -107,10 +107,10 @@ class HopsworksFeatureStore(BaseFeatureStore):
     _SERVERLESS_HOST = "c.app.hopsworks.ai"
 
     def __init__(self):
-        import hopsworks  # imported lazily so it's optional
-
         if not config.HOPSWORKS_API_KEY:
             raise ValueError("HOPSWORKS_API_KEY must be set when USE_HOPSWORKS=true.")
+
+        import hopsworks  # imported lazily so it's optional
 
         # IMPORTANT: always pass an explicit, non-empty `host` — never
         # leave it to hopsworks.login()'s own env-var/default resolution.
