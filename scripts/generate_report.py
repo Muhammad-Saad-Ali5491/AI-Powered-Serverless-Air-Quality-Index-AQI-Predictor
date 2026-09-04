@@ -138,7 +138,7 @@ def build_story(styles: dict) -> list:
         Spacer(1, 0.15 * inch),
         Paragraph("2. System Architecture", heading),
         _paragraph("Raw weather and air-pollution data are fetched from OpenWeather for current observations. Historical pollutant observations are obtained from OpenAQ. The feature pipeline computes EPA-style AQI, calendar features, lag features, rolling statistics, and AQI change rates. Features are written to the local Parquet cache and, when explicitly enabled, to Hopsworks.", body),
-        _paragraph("The training pipeline creates multi-output targets for 24h, 48h, and 72h horizons, compares Ridge Regression, Random Forest, XGBoost, and optionally TensorFlow, and records metrics in the model registry. Streamlit loads the champion model and latest city row to render forecasts, history, alerts, model comparisons, and optional SHAP explanations.", body),
+        _paragraph("The training pipeline creates multi-output targets for 24h, 48h, and 72h horizons, compares Ridge Regression, Random Forest, Extra Trees, Histogram Gradient Boosting, XGBoost, and optionally TensorFlow, and records metrics in the model registry. Streamlit loads the champion model and latest city row to render forecasts, history, alerts, model comparisons, and optional SHAP explanations.", body),
         Spacer(1, 0.15 * inch),
         Paragraph("3. Feature Pipeline", heading),
         _paragraph("The engineered schema includes hour, day, month, day of week, weekend flag, day of year, temperature, humidity, pressure, wind speed and direction, cloud cover, PM2.5, PM10, NO2, SO2, CO, O3, AQI lags at 1h/24h/72h, 24-hour rolling mean and standard deviation, and AQI change rates at 1h/24h.", body),

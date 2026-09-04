@@ -25,7 +25,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import ExtraTreesRegressor, HistGradientBoostingRegressor, RandomForestRegressor
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.preprocessing import StandardScaler
 
@@ -119,6 +119,37 @@ def train_random_forest(X_train, y_train):
     )
     model.fit(X_train, y_train)
     return {"model": model, "scaler": None, "type": "random_forest"}
+
+
+def train_extra_trees(X_train, y_train):
+    """Train randomized trees, a strong low-bias tabular-data candidate."""
+    model = MultiOutputRegressor(
+        ExtraTreesRegressor(
+            n_estimators=120,
+            max_depth=14,
+            min_samples_leaf=3,
+            max_features=0.85,
+            n_jobs=-1,
+            random_state=42,
+        )
+    )
+    model.fit(X_train, y_train)
+    return {"model": model, "scaler": None, "type": "extra_trees"}
+
+
+def train_hist_gradient_boosting(X_train, y_train):
+    """Train sklearn's efficient histogram gradient-boosting candidate."""
+    model = MultiOutputRegressor(
+        HistGradientBoostingRegressor(
+            max_iter=180,
+            learning_rate=0.06,
+            max_leaf_nodes=31,
+            l2_regularization=1.0,
+            random_state=42,
+        )
+    )
+    model.fit(X_train, y_train)
+    return {"model": model, "scaler": None, "type": "hist_gradient_boosting"}
 
 
 def train_xgboost(X_train, y_train):
@@ -262,6 +293,8 @@ def run_training(df: pd.DataFrame | None = None, epochs: int = 30, prune_stale_a
     candidates = {
         "ridge": train_ridge(X_train, y_train),
         "random_forest": train_random_forest(X_train, y_train),
+        "extra_trees": train_extra_trees(X_train, y_train),
+        "hist_gradient_boosting": train_hist_gradient_boosting(X_train, y_train),
     }
     try:
         candidates["xgboost"] = train_xgboost(X_train, y_train)

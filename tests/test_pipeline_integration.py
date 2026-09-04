@@ -67,7 +67,10 @@ def test_training_matrix_builds_without_error(trained_pipeline):
 
 def test_training_produces_champion_with_metrics(trained_pipeline):
     run_record = trained_pipeline
-    assert run_record["model_type"] in ("ridge", "random_forest", "xgboost", "tensorflow")
+    assert run_record["model_type"] in (
+        "ridge", "random_forest", "extra_trees", "hist_gradient_boosting",
+        "xgboost", "tensorflow",
+    )
     assert "overall" in run_record["metrics"][run_record["model_type"]]
     rmse = run_record["metrics"][run_record["model_type"]]["overall"]["rmse"]
     assert rmse >= 0

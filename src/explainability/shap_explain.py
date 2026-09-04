@@ -60,8 +60,8 @@ def explain_model(city: str | None = None, sample_size: int = 200) -> dict:
 
     model_type = bundle["type"]
 
-    if model_type == "random_forest":
-        # MultiOutputRegressor wraps one RF per horizon; explain horizon 0 (24h)
+    if model_type in {"random_forest", "extra_trees", "hist_gradient_boosting", "xgboost"}:
+        # MultiOutputRegressor wraps one estimator per horizon; explain 24h.
         estimator = bundle["model"].estimators_[0]
         explainer = shap.TreeExplainer(estimator)
         shap_values = explainer.shap_values(X_model_input, check_additivity=False)
