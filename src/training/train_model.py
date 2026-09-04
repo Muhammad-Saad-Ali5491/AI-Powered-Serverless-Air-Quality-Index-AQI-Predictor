@@ -125,10 +125,10 @@ def train_extra_trees(X_train, y_train):
     """Train randomized trees, a strong low-bias tabular-data candidate."""
     model = MultiOutputRegressor(
         ExtraTreesRegressor(
-            n_estimators=120,
-            max_depth=14,
-            min_samples_leaf=3,
-            max_features=0.85,
+            n_estimators=60,
+            max_depth=10,
+            min_samples_leaf=5,
+            max_features=0.8,
             n_jobs=-1,
             random_state=42,
         )
@@ -239,7 +239,14 @@ def _save_model_artifact(bundle: dict, name: str) -> str:
             joblib.dump(bundle["scaler"], MODELS_DIR / f"{name}_scaler.joblib")
     else:
         path = MODELS_DIR / f"{name}.joblib"
-        joblib.dump(bundle, path)
+        joblib.dump(bundle, path, compress=3)
+    artifact_size = path.stat().st_size
+    if artifact_size >= 95 * 1024 * 1024:
+        path.unlink()
+        raise ValueError(
+            f"Model artifact {path.name} is too large for GitHub ({artifact_size} bytes). "
+            "Reduce the candidate model size before publishing."
+        )
     return str(path.name)
 
 
