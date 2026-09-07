@@ -232,7 +232,18 @@ def _save_registry(registry: dict) -> None:
 
 
 def _save_model_artifact(bundle: dict, name: str) -> str:
-    if bundle["type"] == "tensorflow":
+    companion_paths = []
+    if bundle["type"] == "xgboost":
+        manifest_name = f"{name}.xgb.json"
+        estimator_files = []
+        for index, estimator in enumerate(bundle["model"].estimators_):
+            filename = f"{name}_{index}.json"
+            estimator.get_booster().save_model(MODELS_DIR / filename)
+            estimator_files.append(filename)
+            companion_paths.append(MODELS_DIR / filename)
+        path = MODELS_DIR / manifest_name
+        path.write_text(json.dumps({"format": "xgboost-native", "estimators": estimator_files}, indent=2))
+    elif bundle["type"] == "tensorflow":
         path = MODELS_DIR / f"{name}.keras"
         bundle["model"].save(path)
         if bundle["scaler"] is not None:
@@ -240,9 +251,11 @@ def _save_model_artifact(bundle: dict, name: str) -> str:
     else:
         path = MODELS_DIR / f"{name}.joblib"
         joblib.dump(bundle, path, compress=3)
-    artifact_size = path.stat().st_size
+    artifact_paths = [path, *companion_paths]
+    artifact_size = sum(item.stat().st_size for item in artifact_paths)
     if artifact_size >= 95 * 1024 * 1024:
-        path.unlink()
+        for item in artifact_paths:
+            item.unlink(missing_ok=True)
         raise ValueError(
             f"Model artifact {path.name} is too large for GitHub ({artifact_size} bytes). "
             "Reduce the candidate model size before publishing."
@@ -265,11 +278,14 @@ def _prune_stale_artifacts(champion_artifact: str) -> None:
     keep_names = {champion_artifact}
     if champion_artifact.endswith(".keras"):
         keep_names.add(champion_artifact.replace(".keras", "_scaler.joblib"))
+    if champion_artifact.endswith(".xgb.json"):
+        manifest = json.loads((MODELS_DIR / champion_artifact).read_text())
+        keep_names.update(manifest.get("estimators", []))
 
     for path in MODELS_DIR.glob("*"):
         if path.name in ("registry.json", ".gitkeep"):
             continue
-        if path.suffix not in (".joblib", ".keras"):
+        if path.suffix not in (".joblib", ".keras", ".json"):
             continue
         if path.name not in keep_names:
             path.unlink()
@@ -361,6 +377,10 @@ def run_training(df: pd.DataFrame | None = None, epochs: int = 30, prune_stale_a
             scaler_path = MODELS_DIR / artifact_name.replace(".keras", "_scaler.joblib")
             if scaler_path.exists():
                 scaler_path.unlink()
+        if artifact_name.endswith(".xgb.json"):
+            manifest = json.loads((MODELS_DIR / artifact_name).read_text())
+            for filename in manifest.get("estimators", []):
+                (MODELS_DIR / filename).unlink(missing_ok=True)
         run_record["artifact"] = None
 
     _save_registry(registry)

@@ -17,6 +17,7 @@ import pandas as pd
 from src import config
 from src.features.feature_store import get_feature_store
 from src.training.train_model import REGISTRY_PATH, HORIZONS_HOURS
+from src.training.xgboost_native import NativeXGBoostMultiOutput
 from src.utils.aqi_calc import aqi_category
 from src.utils.logging_utils import get_logger
 from src.utils.paths import MODELS_DIR
@@ -40,7 +41,17 @@ def _load_champion_cached(registry_mtime_ns: int):
     model_type = champion["model_type"]
     artifact = champion["artifact"]
 
-    if model_type == "tensorflow":
+    if model_type == "xgboost" and artifact.endswith(".xgb.json"):
+        import xgboost as xgb
+
+        manifest = json.loads((MODELS_DIR / artifact).read_text())
+        estimators = []
+        for filename in manifest["estimators"]:
+            booster = xgb.Booster()
+            booster.load_model(MODELS_DIR / filename)
+            estimators.append(booster)
+        bundle = {"model": NativeXGBoostMultiOutput(estimators), "scaler": None, "type": "xgboost"}
+    elif model_type == "tensorflow":
         import tensorflow as tf
         model = tf.keras.models.load_model(MODELS_DIR / artifact)
         scaler_path = MODELS_DIR / artifact.replace(".keras", "_scaler.joblib")
