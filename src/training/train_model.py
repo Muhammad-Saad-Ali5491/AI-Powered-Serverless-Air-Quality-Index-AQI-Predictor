@@ -263,6 +263,22 @@ def _save_model_artifact(bundle: dict, name: str) -> str:
     return str(path.name)
 
 
+def _delete_model_artifact(artifact_name: str) -> None:
+    """Remove an artifact and any native XGBoost companion files safely."""
+    artifact_path = MODELS_DIR / artifact_name
+    companion_names = []
+    if artifact_name.endswith(".xgb.json"):
+        if artifact_path.exists():
+            manifest = json.loads(artifact_path.read_text())
+            companion_names = manifest.get("estimators", [])
+        else:
+            prefix = artifact_name.removesuffix(".xgb.json")
+            companion_names = [path.name for path in MODELS_DIR.glob(f"{prefix}_*.json")]
+    artifact_path.unlink(missing_ok=True)
+    for filename in companion_names:
+        (MODELS_DIR / filename).unlink(missing_ok=True)
+
+
 def _prune_stale_artifacts(champion_artifact: str) -> None:
     """
     Keep the models/ directory (and therefore the git repo, since CI commits
@@ -370,17 +386,11 @@ def run_training(df: pd.DataFrame | None = None, epochs: int = 30, prune_stale_a
     else:
         # Keep the registry history useful without leaving a record that
         # claims an artifact exists after stale-artifact pruning.
-        artifact_path = MODELS_DIR / artifact_name
-        if artifact_path.exists():
-            artifact_path.unlink()
         if artifact_name.endswith(".keras"):
             scaler_path = MODELS_DIR / artifact_name.replace(".keras", "_scaler.joblib")
             if scaler_path.exists():
                 scaler_path.unlink()
-        if artifact_name.endswith(".xgb.json"):
-            manifest = json.loads((MODELS_DIR / artifact_name).read_text())
-            for filename in manifest.get("estimators", []):
-                (MODELS_DIR / filename).unlink(missing_ok=True)
+        _delete_model_artifact(artifact_name)
         run_record["artifact"] = None
 
     _save_registry(registry)
